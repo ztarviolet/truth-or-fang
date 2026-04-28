@@ -1,122 +1,138 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from 'react';
+import { useSocket } from './hooks/useSocket';
+import Home from './pages/Home';
+import HostLobby from './pages/HostLobby';
+import PlayerLobby from './pages/PlayerLobby';
+import RoleCard from './pages/RoleCard';
+import NightPhase from './pages/NightPhase';
+import DayPhase from './pages/DayPhase';
+import VotePhase from './pages/VotePhase';
+import GameOver from './pages/GameOver';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const { emit, on, socketId } = useSocket();
+
+  const [screen, setScreen] = useState('home');
+  const [roomCode, setRoomCode] = useState('');
+  const [myName, setMyName] = useState('');
+  const [isHost, setIsHost] = useState(false);
+  const [players, setPlayers] = useState([]);
+  const [myRole, setMyRole] = useState(null);
+  const [myBonus, setMyBonus] = useState(null);
+  const [monsterTeam, setMonsterTeam] = useState([]);
+  const [phase, setPhase] = useState('night');
+  const [turn, setTurn] = useState(1);
+  const [eliminated, setEliminated] = useState(null);
+  const [alivePlayers, setAlivePlayers] = useState([]);
+  const [canVote, setCanVote] = useState(true);
+  const [gameOverData, setGameOverData] = useState(null);
+  const [inspectorResult, setInspectorResult] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const offs = [
+      on('room_created', ({ code }) => {
+        setRoomCode(code);
+        setScreen('hostLobby');
+      }),
+      on('joined', ({ code }) => {
+        setRoomCode(code);
+        setScreen('playerLobby');
+      }),
+      on('lobby_update', ({ players }) => setPlayers(players)),
+      on('role_assigned', ({ role, bonusCard }) => {
+        setMyRole(role);
+        setMyBonus(bonusCard);
+        setScreen('roleCard');
+      }),
+      on('monster_team', ({ monsters }) => setMonsterTeam(monsters)),
+      on('phase_change', ({ phase, turn, eliminated, alivePlayers }) => {
+        setPhase(phase);
+        setTurn(turn);
+        if (eliminated !== undefined) setEliminated(eliminated);
+        if (alivePlayers) setAlivePlayers(alivePlayers);
+        if (phase === 'night') setScreen('night');
+        if (phase === 'day') setScreen('day');
+        if (phase === 'vote') setScreen('vote');
+      }),
+      on('vote_result', ({ eliminated, alivePlayers }) => {
+        setEliminated(eliminated);
+        if (alivePlayers) setAlivePlayers(alivePlayers);
+      }),
+      on('silenced', () => setCanVote(false)),
+      on('inspector_result', (data) => setInspectorResult(data)),
+      on('game_over', (data) => {
+        setGameOverData(data);
+        setScreen('gameOver');
+      }),
+      on('error', (msg) => setError(msg)),
+    ];
+    return () => offs.forEach(off => off && off());
+  }, [on]);
+
+  const handleHost = (name) => {
+    setMyName(name);
+    setIsHost(true);
+    emit('create_room', { hostName: name });
+  };
+
+  const handleJoin = (name, code) => {
+    setMyName(name);
+    emit('join_room', { code, name });
+  };
+
+  const handleStart = () => emit('start_game', { code: roomCode });
+  const handleAdvancePhase = () => emit('advance_phase', { code: roomCode });
+
+  const afterRoleCard = () => setScreen(phase === 'night' ? 'night' : 'day');
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app">
+      {error && <div className="error-toast" onClick={() => setError('')}>⚠️ {error}</div>}
+      {inspectorResult && (
+        <div className="inspector-toast" onClick={() => setInspectorResult(null)}>
+          🔍 {inspectorResult.pronoun} is {inspectorResult.result}
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      )}
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {screen === 'home' && <Home onHost={handleHost} onJoin={handleJoin} />}
+      {screen === 'hostLobby' && <HostLobby code={roomCode} players={players} onStart={handleStart} />}
+      {screen === 'playerLobby' && <PlayerLobby code={roomCode} name={myName} players={players} />}
+      {screen === 'roleCard' && <RoleCard role={myRole} bonusCard={myBonus} onConfirm={afterRoleCard} />}
+      {screen === 'night' && (
+        <NightPhase
+          role={myRole}
+          alivePlayers={alivePlayers.length ? alivePlayers : players}
+          myId={socketId()}
+          monsterTeam={monsterTeam}
+          turn={turn}
+          emit={emit}
+          code={roomCode}
+          isHost={isHost}
+          onAdvance={handleAdvancePhase}
+        />
+      )}
+      {screen === 'day' && (
+        <DayPhase
+          eliminated={eliminated}
+          alivePlayers={alivePlayers}
+          isHost={isHost}
+          onAdvance={handleAdvancePhase}
+        />
+      )}
+      {screen === 'vote' && (
+        <VotePhase
+          alivePlayers={alivePlayers}
+          myId={socketId()}
+          canVote={canVote}
+          emit={emit}
+          code={roomCode}
+        />
+      )}
+      {screen === 'gameOver' && gameOverData && (
+        <GameOver winner={gameOverData.winner} players={gameOverData.players} />
+      )}
+    </div>
+  );
 }
-
-export default App
