@@ -5,9 +5,10 @@ const cors = require('cors');
 const { assignRoles, checkVictory, ROLES, MONSTER_ROLES } = require('./gameLogic');
 
 const app = express();
-app.use(cors());
+const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+app.use(cors({ origin: allowedOrigin }));
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, { cors: { origin: allowedOrigin } });
 
 const rooms = {}; // roomCode -> room state
 
@@ -57,6 +58,14 @@ io.on('connection', (socket) => {
     });
   });
 
+  // HOST closes room
+  socket.on('close_room', ({ code }) => {
+    const room = getRoom(code);
+    if (!room || room.host !== socket.id) return;
+    socket.to(code).emit('host_left');
+    delete rooms[code];
+  });
+
   // HOST starts game
   socket.on('start_game', ({ code }) => {
     const room = getRoom(code);
@@ -90,6 +99,18 @@ io.on('connection', (socket) => {
     });
 
     io.to(code).emit('phase_change', { phase: 'night', turn: room.turn });
+  });
+
+  // BONUS CARD
+  socket.on('use_bonus_card', ({ code, targetId }) => {
+    const room = getRoom(code);
+    if (!room) return;
+    const player = room.players[socket.id];
+    if (!player || !player.bonusCard || player.bonusUsed) return;
+
+    player.bonusUsed = true;
+    room.nightActions[`bonus_${socket.id}`] = { card: player.bonusCard, actorId: socket.id, targetId };
+    socket.emit('bonus_confirmed', { card: player.bonusCard });
   });
 
   // NIGHT ACTION: monster chooses victim
@@ -153,8 +174,16 @@ io.on('connection', (socket) => {
     Object.keys(rooms).forEach(code => {
       const room = rooms[code];
       if (room.players[socket.id]) {
-        room.players[socket.id].isAlive = false;
-        io.to(code).emit('player_disconnected', { id: socket.id, name: room.players[socket.id].name });
+        if (room.phase === 'lobby') {
+          delete room.players[socket.id];
+          io.to(code).emit('lobby_update', {
+            players: Object.values(room.players).map(p => ({ id: p.id, name: p.name })),
+            hostName: room.hostName,
+          });
+        } else {
+          room.players[socket.id].isAlive = false;
+          io.to(code).emit('player_disconnected', { id: socket.id, name: room.players[socket.id].name });
+        }
       }
     });
   });
@@ -171,17 +200,42 @@ function resolveNight(room, code) {
   const killAction = room.nightActions['monster_kill'];
   let eliminated = null;
 
+  // Collect bonus cards used this night
+  const shieldTargets = new Set();
+  const fullMoonActorId = Object.values(room.nightActions)
+    .find(a => a.card === 'Full Moon')?.actorId;
+  const fullMoonTargetId = Object.values(room.nightActions)
+    .find(a => a.card === 'Full Moon')?.targetId;
+
+  Object.values(room.nightActions).forEach(a => {
+    if (a.card === 'Silver Shield') shieldTargets.add(a.actorId);
+    if (a.card === 'Garlic Necklace') shieldTargets.add(a.actorId);
+  });
+
   if (killAction) {
     const target = room.players[killAction.targetId];
     const protectAction = room.nightActions['protect'];
+    const isShielded = shieldTargets.has(killAction.targetId);
 
     if (protectAction && protectAction.targetId === killAction.targetId && room.protectorSaves > 0) {
       room.protectorSaves--;
       room.log.push(`${target.name} was saved by The Protector!`);
+    } else if (isShielded) {
+      room.log.push(`${target.name} was protected by a bonus card!`);
     } else if (target && target.isAlive) {
       target.isAlive = false;
       eliminated = { id: target.id, name: target.name, role: target.role };
       room.log.push(`${target.name} was eliminated at night.`);
+    }
+  }
+
+  // Full Moon: Wolfman kills a second target
+  if (fullMoonActorId && fullMoonTargetId) {
+    const actor = room.players[fullMoonActorId];
+    const target = room.players[fullMoonTargetId];
+    if (actor?.role === 'Wolfman' && target?.isAlive && !shieldTargets.has(fullMoonTargetId)) {
+      target.isAlive = false;
+      room.log.push(`${target.name} was eliminated by Full Moon!`);
     }
   }
 

@@ -1,9 +1,13 @@
 import { useState } from 'react';
+import { useSound } from '../hooks/useSound';
 
-export default function Home({ onHost, onJoin }) {
+export default function Home({ onHost, onJoin, initialMode }) {
+  const params = new URLSearchParams(window.location.search);
+  const joinCode = params.get('join') || '';
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [mode, setMode] = useState(null); // 'host' | 'join'
+  const [code, setCode] = useState(joinCode);
+  const [mode, setMode] = useState(initialMode || (joinCode ? 'join' : null));
+  const { playPop } = useSound();
 
   const handleHost = () => {
     if (name.trim()) onHost(name.trim());
@@ -14,7 +18,7 @@ export default function Home({ onHost, onJoin }) {
   };
 
   return (
-    <div className="screen center">
+    <div className="screen center home">
       <div className="title-block">
         <h1>🧟 Monster School</h1>
         <p className="subtitle">Truth or Fang?</p>
@@ -22,8 +26,8 @@ export default function Home({ onHost, onJoin }) {
 
       {!mode && (
         <div className="btn-group">
-          <button className="btn btn-host" onClick={() => setMode('host')}>🎓 Host a Game</button>
-          <button className="btn btn-join" onClick={() => setMode('join')}>🎮 Join Game</button>
+          <button className="btn btn-host" onClick={() => { playPop(); setMode('host'); }}>🎓 Host a Game</button>
+          <button className="btn btn-join" onClick={() => { playPop(); setMode('join'); }}>🎮 Join Game</button>
         </div>
       )}
 
@@ -46,10 +50,10 @@ export default function Home({ onHost, onJoin }) {
             />
           )}
           <div className="btn-group">
-            <button className="btn btn-secondary" onClick={() => setMode(null)}>← Back</button>
+            <button className="btn btn-secondary" onClick={() => { playPop(); setMode(null); }}>← Back</button>
             <button
               className="btn btn-primary"
-              onClick={mode === 'host' ? handleHost : handleJoin}
+              onClick={() => { playPop(); mode === 'host' ? handleHost() : handleJoin(); }}
             >
               {mode === 'host' ? 'Create Room' : 'Join Room'}
             </button>

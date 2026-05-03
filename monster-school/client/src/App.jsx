@@ -29,6 +29,17 @@ export default function App() {
   const [gameOverData, setGameOverData] = useState(null);
   const [inspectorResult, setInspectorResult] = useState(null);
   const [error, setError] = useState('');
+  const [bonusUsed, setBonusUsed] = useState(false);
+  const [fading, setFading] = useState(false);
+  const [hostLeft, setHostLeft] = useState(false);
+  const [lobbyHostName, setLobbyHostName] = useState('');
+
+  useEffect(() => {
+    if (fading) {
+      const t = setTimeout(() => setFading(false), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [fading]);
 
   useEffect(() => {
     const offs = [
@@ -40,11 +51,13 @@ export default function App() {
         setRoomCode(code);
         setScreen('playerLobby');
       }),
-      on('lobby_update', ({ players }) => setPlayers(players)),
+      on('lobby_update', ({ players, hostName }) => { setPlayers(players); if (hostName) setLobbyHostName(hostName); }),
       on('role_assigned', ({ role, bonusCard }) => {
         setMyRole(role);
         setMyBonus(bonusCard);
-        setScreen('roleCard');
+        setBonusUsed(false);
+        setFading(true);
+        setTimeout(() => setScreen('roleCard'), 2500);
       }),
       on('monster_team', ({ monsters }) => setMonsterTeam(monsters)),
       on('phase_change', ({ phase, turn, eliminated, alivePlayers }) => {
@@ -66,14 +79,27 @@ export default function App() {
         setGameOverData(data);
         setScreen('gameOver');
       }),
+      on('host_left', () => {
+        setLobbyHostName('');
+        setHostLeft(true);
+        setTimeout(() => {
+          setScreen('home');
+          setRoomCode('');
+          setPlayers([]);
+          setHostLeft(false);
+        }, 3000);
+      }),
       on('error', (msg) => setError(msg)),
     ];
     return () => offs.forEach(off => off && off());
   }, [on]);
 
+  const [backMode, setBackMode] = useState(null);
+
   const handleHost = (name) => {
     setMyName(name);
     setIsHost(true);
+    setBackMode('host');
     emit('create_room', { hostName: name });
   };
 
@@ -82,13 +108,17 @@ export default function App() {
     emit('join_room', { code, name });
   };
 
-  const handleStart = () => emit('start_game', { code: roomCode });
+  const handleStart = () => {
+    setFading(true);
+    setTimeout(() => emit('start_game', { code: roomCode }), 2500);
+  };
   const handleAdvancePhase = () => emit('advance_phase', { code: roomCode });
 
   const afterRoleCard = () => setScreen(phase === 'night' ? 'night' : 'day');
 
   return (
     <div className="app">
+      {fading && <div className="school-fade" />}
       {error && <div className="error-toast" onClick={() => setError('')}>⚠️ {error}</div>}
       {inspectorResult && (
         <div className="inspector-toast" onClick={() => setInspectorResult(null)}>
@@ -96,9 +126,9 @@ export default function App() {
         </div>
       )}
 
-      {screen === 'home' && <Home onHost={handleHost} onJoin={handleJoin} />}
-      {screen === 'hostLobby' && <HostLobby code={roomCode} players={players} onStart={handleStart} />}
-      {screen === 'playerLobby' && <PlayerLobby code={roomCode} name={myName} players={players} />}
+      {screen === 'home' && <Home onHost={handleHost} onJoin={handleJoin} initialMode={backMode} />}
+      {screen === 'hostLobby' && <HostLobby code={roomCode} players={players} onStart={handleStart} onBack={() => { emit('close_room', { code: roomCode }); setScreen('home'); setRoomCode(''); setPlayers([]); }} />}
+      {screen === 'playerLobby' && <PlayerLobby code={roomCode} name={myName} players={players} hostName={lobbyHostName} hostLeft={hostLeft} onLeave={() => { setScreen('home'); setRoomCode(''); setPlayers([]); setHostLeft(false); setLobbyHostName(''); }} />}
       {screen === 'roleCard' && <RoleCard role={myRole} bonusCard={myBonus} onConfirm={afterRoleCard} />}
       {screen === 'night' && (
         <NightPhase
@@ -111,6 +141,9 @@ export default function App() {
           code={roomCode}
           isHost={isHost}
           onAdvance={handleAdvancePhase}
+          myBonus={myBonus}
+          bonusUsed={bonusUsed}
+          onBonusUsed={() => setBonusUsed(true)}
         />
       )}
       {screen === 'day' && (

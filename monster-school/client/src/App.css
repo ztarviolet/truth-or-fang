@@ -41,6 +41,28 @@ body {
   justify-content: center;
 }
 
+.screen.center.home {
+  background-image: url('/escuela.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.screen.center.home::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 13, 26, 0.7);
+  border-radius: 0;
+  z-index: 0;
+}
+
+.screen.center.home > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* TITLE */
 .title-block { text-align: center; }
 .title-block h1 { font-size: 2.4rem; color: var(--accent); letter-spacing: 2px; }
@@ -81,20 +103,67 @@ body {
   font-size: 1rem;
   font-weight: 600;
   padding: 12px 20px;
-  transition: opacity 0.2s, transform 0.1s;
+  transition: opacity 0.2s, transform 0.2s;
 }
-.btn:hover { opacity: 0.88; }
+.btn:hover { opacity: 0.88; transform: scale(1.07); }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.btn-primary { background: var(--accent); color: #1a1a2e; }
-.btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
-.btn-host { background: var(--accent2); color: #fff; font-size: 1.1rem; padding: 14px 28px; }
-.btn-join { background: var(--purple); color: #fff; font-size: 1.1rem; padding: 14px 28px; }
+.btn-primary {
+  background-image: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('/Boton.jpg');
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  border: none;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+}
+.btn-secondary {
+  background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('/Boton.jpg');
+  background-size: cover;
+  background-position: center;
+  color: #ddd;
+  border: none;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+}
+.btn-host {
+  background-image: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('/Boton.jpg');
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  font-size: 1rem;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 2px 4px 8px rgba(0,0,0,0.6);
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+  letter-spacing: 1px;
+}
+.btn-host:hover { filter: brightness(1.15); opacity: 1; }
+
+.btn-join {
+  background-image: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('/Boton.jpg');
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  font-size: 1rem;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 2px 4px 8px rgba(0,0,0,0.6);
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+  letter-spacing: 1px;
+}
+.btn-join:hover { filter: brightness(1.15); opacity: 1; }
+
+.btn-host:active, .btn-join:active {
+  transform: scale(0.93);
+  filter: brightness(0.85);
+  transition: transform 0.1s, filter 0.1s;
+}
 
 .btn-group {
   display: flex;
-  gap: 12px;
+  gap: 24px;
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -147,11 +216,22 @@ body {
   font-size: 0.9rem;
   padding: 6px 14px;
 }
+.player-chip.host { border-color: #e0c97f; color: #e0c97f; }
 .player-chip.me { border-color: var(--accent); color: var(--accent); }
 .player-chip.monster { border-color: var(--accent2); color: var(--accent2); }
 .player-chip.selectable { cursor: pointer; transition: all 0.15s; }
 .player-chip.selectable:hover { border-color: var(--accent); color: var(--accent); }
 .player-chip.selected { background: var(--accent); color: #1a1a2e; border-color: var(--accent); font-weight: 700; }
+
+.player-chip.pop {
+  animation: pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pop {
+  0%   { transform: scale(0); opacity: 0; }
+  70%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 .waiting-text { color: var(--text2); font-style: italic; }
 
@@ -305,7 +385,44 @@ body {
   padding: 3px 10px;
 }
 
+.btn-bonus {
+  background: linear-gradient(135deg, #1a1500, #2a2000);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-size: 0.95rem;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+.btn-bonus:hover { opacity: 0.85; }
+
+.bonus-panel {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
 /* TOASTS */
+.school-fade {
+  position: fixed;
+  inset: 0;
+  background-image: url('/escuela.jpg');
+  background-size: cover;
+  background-position: center;
+  z-index: 999;
+  animation: school-darken 2.5s forwards;
+}
+
+@keyframes school-darken {
+  0%   { filter: brightness(1); opacity: 1; }
+  60%  { filter: brightness(0.15); opacity: 1; }
+  100% { filter: brightness(0); opacity: 1; }
+}
+
 .error-toast {
   background: #2a0000;
   border-bottom: 2px solid var(--accent2);

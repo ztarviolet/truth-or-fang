@@ -1,5 +1,6 @@
 export default function GameOver({ winner, players }) {
   const isMonsterWin = winner === 'monsters';
+  const handleReload = () => window.location.reload();
 
   return (
     <div className="screen center">
@@ -23,7 +24,7 @@ export default function GameOver({ winner, players }) {
         ))}
       </div>
 
-      <button className="btn btn-primary" onClick={() => window.location.reload()}>
+      <button className="btn btn-primary" onClick={handleReload}>
         🔄 Play Again
       </button>
     </div>
