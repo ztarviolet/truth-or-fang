@@ -57,7 +57,8 @@ export default function App() {
         setMyBonus(bonusCard);
         setBonusUsed(false);
         setFading(true);
-        setTimeout(() => setScreen('roleCard'), 2500);
+        setTimeout(() => setScreen('escritorio'), 2500);
+        setTimeout(() => setScreen('roleCard'), 6000);
       }),
       on('monster_team', ({ monsters }) => setMonsterTeam(monsters)),
       on('phase_change', ({ phase, turn, eliminated, alivePlayers }) => {
@@ -127,8 +128,9 @@ export default function App() {
       )}
 
       {screen === 'home' && <Home onHost={handleHost} onJoin={handleJoin} initialMode={backMode} />}
-      {screen === 'hostLobby' && <HostLobby code={roomCode} players={players} onStart={handleStart} onBack={() => { emit('close_room', { code: roomCode }); setScreen('home'); setRoomCode(''); setPlayers([]); }} />}
+      {screen === 'hostLobby' && <HostLobby code={roomCode} players={players} onStart={handleStart} onBack={() => { emit('close_room', { code: roomCode }); setScreen('home'); setRoomCode(''); setPlayers([]); setIsHost(false); setBackMode(null); }} />}
       {screen === 'playerLobby' && <PlayerLobby code={roomCode} name={myName} players={players} hostName={lobbyHostName} hostLeft={hostLeft} onLeave={() => { setScreen('home'); setRoomCode(''); setPlayers([]); setHostLeft(false); setLobbyHostName(''); }} />}
+      {screen === 'escritorio' && <div className="escritorio-reveal" />}
       {screen === 'roleCard' && <RoleCard role={myRole} bonusCard={myBonus} onConfirm={afterRoleCard} />}
       {screen === 'night' && (
         <NightPhase
@@ -152,6 +154,9 @@ export default function App() {
           alivePlayers={alivePlayers}
           isHost={isHost}
           onAdvance={handleAdvancePhase}
+          role={myRole}
+          myBonus={myBonus}
+          monsterTeam={monsterTeam}
         />
       )}
       {screen === 'vote' && (

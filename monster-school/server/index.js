@@ -5,7 +5,7 @@ const cors = require('cors');
 const { assignRoles, checkVictory, ROLES, MONSTER_ROLES } = require('./gameLogic');
 
 const app = express();
-const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const allowedOrigin = process.env.CLIENT_ORIGIN || true;
 app.use(cors({ origin: allowedOrigin }));
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: allowedOrigin } });
@@ -350,4 +350,4 @@ function endGame(room, code, winner) {
   });
 }
 
-server.listen(3001, () => console.log('Monster School server running on port 3001'));
+server.listen(3001, '0.0.0.0', () => console.log('Monster School server running on port 3001'));

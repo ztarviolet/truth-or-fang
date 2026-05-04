@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import RoleTab from '../components/RoleTab';
 
 export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn, emit, code, myBonus, bonusUsed, onBonusUsed }) {
   const [selected, setSelected] = useState(null);
@@ -53,7 +54,7 @@ export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn
   };
 
   return (
-    <div className="screen center">
+    <div className="screen center escritorio-bg">
       <div className="phase-header night">
         <h2>🌙 Night Phase</h2>
         <p className="turn-label">Turn {turn}</p>
@@ -131,6 +132,7 @@ export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn
           <p>Action submitted. Waiting for others...</p>
         </div>
       )}
+      <RoleTab role={role} bonusCard={myBonus} monsterTeam={monsterTeam} />
     </div>
   );
 }

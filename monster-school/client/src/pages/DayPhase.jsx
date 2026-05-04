@@ -1,3 +1,5 @@
+import RoleTab from '../components/RoleTab';
+
 const PHRASES = {
   accuse: [
     'He is a monster!', 'She is suspicious.', 'They are monsters.',
@@ -16,9 +18,9 @@ const PHRASES = {
   ],
 };
 
-export default function DayPhase({ eliminated, alivePlayers, isHost, onAdvance, log }) {
+export default function DayPhase({ eliminated, alivePlayers, isHost, onAdvance, role, myBonus, monsterTeam }) {
   return (
-    <div className="screen">
+    <div className="screen escritorio-bg">
       <div className="phase-header day">
         <h2>☀️ Day Phase</h2>
         <p className="hint">"Good morning, Monster School!"</p>
@@ -58,6 +60,7 @@ export default function DayPhase({ eliminated, alivePlayers, isHost, onAdvance, 
           🗳️ Start Vote
         </button>
       )}
+      <RoleTab role={role} bonusCard={myBonus} monsterTeam={monsterTeam} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSound } from '../hooks/useSound';
 
 export default function Home({ onHost, onJoin, initialMode }) {
@@ -7,14 +7,19 @@ export default function Home({ onHost, onJoin, initialMode }) {
   const [name, setName] = useState('');
   const [code, setCode] = useState(joinCode);
   const [mode, setMode] = useState(initialMode || (joinCode ? 'join' : null));
-  const { playPop } = useSound();
+  const { playPop, playHalloween, stopHalloween, playBeep } = useSound();
+
+  useEffect(() => {
+    playHalloween();
+    return () => stopHalloween();
+  }, []);
 
   const handleHost = () => {
-    if (name.trim()) onHost(name.trim());
+    if (name.trim()) { stopHalloween(); onHost(name.trim()); }
   };
 
   const handleJoin = () => {
-    if (name.trim() && code.trim()) onJoin(name.trim(), code.trim().toUpperCase());
+    if (name.trim() && code.trim()) { stopHalloween(); onJoin(name.trim(), code.trim().toUpperCase()); }
   };
 
   return (
@@ -37,7 +42,7 @@ export default function Home({ onHost, onJoin, initialMode }) {
             className="input"
             placeholder="Your name"
             value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={e => { playBeep(); setName(e.target.value); }}
             maxLength={20}
           />
           {mode === 'join' && (
@@ -45,8 +50,9 @@ export default function Home({ onHost, onJoin, initialMode }) {
               className="input"
               placeholder="Room code"
               value={code}
-              onChange={e => setCode(e.target.value)}
+              onChange={e => { playBeep(); setCode(e.target.value); }}
               maxLength={6}
+              readOnly={!!joinCode}
             />
           )}
           <div className="btn-group">
