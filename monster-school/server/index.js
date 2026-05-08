@@ -156,6 +156,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  // CHAT MESSAGE
+  socket.on('chat_message', ({ code, message }) => {
+    const room = getRoom(code);
+    if (!room) return;
+    const player = room.players[socket.id];
+    if (!player || !player.isAlive) return;
+    io.to(code).emit('chat_message', { name: player.name, message, id: socket.id });
+  });
+
   // HOST advances phase
   socket.on('advance_phase', ({ code }) => {
     const room = getRoom(code);

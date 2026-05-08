@@ -1,26 +1,109 @@
 import { useState } from 'react';
 import RoleTab from '../components/RoleTab';
+import ClassroomPhase from './ClassroomPhase';
 
-export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn, emit, code, myBonus, bonusUsed, onBonusUsed }) {
-  const [selected, setSelected] = useState(null);
-  const [actionDone, setActionDone] = useState(false);
-  const [bonusTarget, setBonusTarget] = useState(null);
-  const [bonusMode, setBonusMode] = useState(false);
+const actionMap = {
+  'Wolfman': 'monster_kill',
+  'Lord Vampire': 'vampire_transform',
+  'Mommy': 'mommy_silence',
+  'Monster Hunter': 'hunter_kill',
+  'The Protector': 'protect',
+  'The Shaman': 'shaman_convert',
+  'Inspector Grammar': null,
+};
 
-  const canAct = ['Wolfman', 'Lord Vampire', 'Mommy', 'Monster Hunter', 'The Protector', 'The Shaman', 'Inspector Grammar'].includes(role);
+const CAN_ACT = ['Wolfman', 'Lord Vampire', 'Mommy', 'Monster Hunter', 'The Protector', 'The Shaman', 'Inspector Grammar'];
 
-  const actionMap = {
-    'Wolfman': 'monster_kill',
-    'Lord Vampire': 'vampire_transform',
-    'Mommy': 'mommy_silence',
-    'Monster Hunter': 'hunter_kill',
-    'The Protector': 'protect',
-    'The Shaman': 'shaman_convert',
-    'Inspector Grammar': null, // uses inspector_check
+// Contenido del pizarrón para el HOST
+function HostBoard({ turn }) {
+  return (
+    <div className="board-content">
+      <span className="board-line board-title">🌙 Night Phase</span>
+      <span className="board-line board-sub">Turn {turn}</span>
+      <span className="board-line board-divider">— — — — — — —</span>
+      <span className="board-line">😴 Everyone, close your eyes...</span>
+      <span className="board-line board-hint">"Monsters, open your eyes."</span>
+    </div>
+  );
+}
+
+// Contenido del pizarrón para JUGADORES con acción
+function PlayerBoard({ role, targets, selected, onSelect, actionDone, monsterTeam, bonusMode }) {
+  const actionVerb = {
+    'Wolfman': '🐺 Choose your victim:',
+    'Lord Vampire': '🧛 Choose to transform:',
+    'Mommy': '🧟 Choose to silence:',
+    'Monster Hunter': '🏹 Choose to eliminate:',
+    'The Protector': '🛡️ Choose to protect:',
+    'The Shaman': '🔮 Choose to convert:',
+    'Inspector Grammar': '🔍 Choose to inspect:',
   };
 
-  const handleAction = () => {
-    if (!selected) return;
+  if (actionDone) {
+    return (
+      <div className="board-content">
+        <span className="board-line board-title">🌙 Night Phase</span>
+        <span className="board-line board-divider">— — — — — — —</span>
+        <span className="board-line">✅ Action submitted!</span>
+        <span className="board-line board-hint">Waiting for others...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="board-content">
+      <span className="board-line board-title">🌙 Night Phase</span>
+      <span className="board-line board-divider">— — — — — — —</span>
+      {monsterTeam?.length > 0 && (
+        <span className="board-line board-hint">
+          🐾 Team: {monsterTeam.map(m => m.name).join(', ')}
+        </span>
+      )}
+      <span className="board-line board-sub">
+        {bonusMode ? '🌕 Full Moon — pick 2nd target:' : actionVerb[role]}
+      </span>
+      {targets.map(p => (
+        <span
+          key={p.id}
+          className={`board-line board-target ${selected === p.id ? 'board-target-selected' : ''}`}
+          onClick={() => onSelect(p.id)}
+        >
+          {selected === p.id ? '▶ ' : '  '}{p.name}
+        </span>
+      ))}
+      {!targets.length && <span className="board-line board-hint">No targets available</span>}
+    </div>
+  );
+}
+
+// Pizarrón para jugadores sin acción (duermen)
+function SleepBoard({ turn }) {
+  return (
+    <div className="board-content">
+      <span className="board-line board-title">🌙 Night Phase</span>
+      <span className="board-line board-sub">Turn {turn}</span>
+      <span className="board-line board-divider">— — — — — — —</span>
+      <span className="board-line">😴 Close your eyes...</span>
+      <span className="board-line board-hint">Wait for the night to pass.</span>
+    </div>
+  );
+}
+
+export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn, emit, code, myBonus, bonusUsed, onBonusUsed, isHost, onAdvance, hostName, players }) {
+  const [selected, setSelected] = useState(null);
+  const [actionDone, setActionDone] = useState(false);
+  const [bonusMode, setBonusMode] = useState(false);
+
+  const canAct = CAN_ACT.includes(role);
+  const targets = alivePlayers.filter(p => p.id !== myId);
+
+  const handleSelect = (targetId) => {
+    if (actionDone) return;
+    setSelected(targetId);
+  };
+
+  const handleConfirm = () => {
+    if (!selected || actionDone) return;
     if (role === 'Inspector Grammar') {
       emit('inspector_check', { code, targetId: selected });
     } else {
@@ -38,101 +121,51 @@ export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn
     }
   };
 
-  const handleBonusTarget = () => {
-    if (!bonusTarget) return;
-    emit('use_bonus_card', { code, targetId: bonusTarget });
-    onBonusUsed();
-    setBonusMode(false);
+  const handleSeatClick = (p) => {
+    if (!canAct || actionDone) return;
+    if (bonusMode) {
+      emit('use_bonus_card', { code, targetId: p.id });
+      onBonusUsed();
+      setBonusMode(false);
+      return;
+    }
+    setSelected(p.id);
   };
 
-  const targets = alivePlayers.filter(p => p.id !== myId);
-
-  const bonusLabel = {
-    'Full Moon': '🌕 Use Full Moon — kill a 2nd target',
-    'Silver Shield': '🛡️ Use Silver Shield — protect yourself tonight',
-    'Garlic Necklace': '🧄 Use Garlic Necklace — block vampire transform',
-  };
+  const boardContent = isHost
+    ? <HostBoard turn={turn} />
+    : canAct
+      ? <PlayerBoard role={role} targets={targets} selected={selected} onSelect={handleSelect} actionDone={actionDone} monsterTeam={monsterTeam} bonusMode={bonusMode} />
+      : <SleepBoard turn={turn} />;
 
   return (
-    <div className="screen center escritorio-bg">
-      <div className="phase-header night">
-        <h2>🌙 Night Phase</h2>
-        <p className="turn-label">Turn {turn}</p>
-      </div>
-
-      {!canAct && (
-        <div className="sleep-block">
-          <p className="big-emoji">😴</p>
-          <p>Close your eyes and wait...</p>
-          <p className="hint">"Everybody, close your eyes…"</p>
-        </div>
+    <ClassroomPhase
+      players={alivePlayers.length ? alivePlayers : players}
+      hostName={hostName}
+      myId={myId}
+      onSeatClick={handleSeatClick}
+      selectedId={selected}
+      isVoting={false}
+      boardContent={boardContent}
+    >
+      {/* Botón confirmar solo si hay selección */}
+      {canAct && !actionDone && selected && !isHost && (
+        <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={handleConfirm}>
+          ✅ Confirm — {alivePlayers.find(p => p.id === selected)?.name}
+        </button>
       )}
 
-      {canAct && !actionDone && (
-        <div className="action-block">
-          <p className="action-title">
-            {role === 'Inspector Grammar' ? '🔍 Check a player' : '🎯 Choose your target'}
-          </p>
-          {monsterTeam && monsterTeam.length > 0 && (
-            <div className="monster-team">
-              <p className="label">Your team:</p>
-              {monsterTeam.map(m => (
-                <span key={m.id} className="player-chip monster">{m.name} ({m.role})</span>
-              ))}
-            </div>
-          )}
-          <div className="player-grid">
-            {targets.map(p => (
-              <button
-                key={p.id}
-                className={`player-chip selectable ${selected === p.id ? 'selected' : ''}`}
-                onClick={() => setSelected(p.id)}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-          <button className="btn btn-primary" onClick={handleAction} disabled={!selected}>
-            Confirm
-          </button>
-        </div>
+      {myBonus && !bonusUsed && !bonusMode && !actionDone && !isHost && (
+        <button className="btn btn-bonus" onClick={handleBonus}>
+          {{ 'Full Moon': '🌕 Use Full Moon', 'Silver Shield': '🛡️ Use Silver Shield', 'Garlic Necklace': '🧄 Use Garlic Necklace' }[myBonus]}
+        </button>
       )}
 
-      {myBonus && !bonusUsed && !bonusMode && (
-        <div className="bonus-panel">
-          <button className="btn btn-bonus" onClick={handleBonus}>
-            {bonusLabel[myBonus]}
-          </button>
-        </div>
+      {isHost && (
+        <button className="btn btn-secondary" onClick={onAdvance}>⏭ Skip Night</button>
       )}
 
-      {bonusMode && (
-        <div className="action-block">
-          <p className="action-title">🌕 Choose a second target to eliminate</p>
-          <div className="player-grid">
-            {targets.map(p => (
-              <button
-                key={p.id}
-                className={`player-chip selectable ${bonusTarget === p.id ? 'selected' : ''}`}
-                onClick={() => setBonusTarget(p.id)}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-          <button className="btn btn-primary" onClick={handleBonusTarget} disabled={!bonusTarget}>
-            Confirm Full Moon
-          </button>
-        </div>
-      )}
-
-      {actionDone && (
-        <div className="sleep-block">
-          <p className="big-emoji">✅</p>
-          <p>Action submitted. Waiting for others...</p>
-        </div>
-      )}
       <RoleTab role={role} bonusCard={myBonus} monsterTeam={monsterTeam} />
-    </div>
+    </ClassroomPhase>
   );
 }

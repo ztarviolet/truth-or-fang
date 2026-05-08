@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSocket } from './hooks/useSocket';
+import { useSound } from './hooks/useSound';
 import Home from './pages/Home';
+import MoonLoading from './pages/MoonLoading';
+import QuestionCard from './pages/QuestionCard';
 import HostLobby from './pages/HostLobby';
 import PlayerLobby from './pages/PlayerLobby';
 import RoleCard from './pages/RoleCard';
@@ -12,8 +15,11 @@ import './App.css';
 
 export default function App() {
   const { emit, on, socketId } = useSocket();
+  const { playHalloween, stopHalloween } = useSound();
 
   const [screen, setScreen] = useState('home');
+  const [showMoon, setShowMoon] = useState(false);
+  const [pendingScreen, setPendingScreen] = useState(null);
   const [roomCode, setRoomCode] = useState('');
   const [myName, setMyName] = useState('');
   const [isHost, setIsHost] = useState(false);
@@ -33,6 +39,7 @@ export default function App() {
   const [fading, setFading] = useState(false);
   const [hostLeft, setHostLeft] = useState(false);
   const [lobbyHostName, setLobbyHostName] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
 
   useEffect(() => {
     if (fading) {
@@ -46,10 +53,12 @@ export default function App() {
       on('room_created', ({ code }) => {
         setRoomCode(code);
         setScreen('hostLobby');
+        setShowMoon(true);
       }),
       on('joined', ({ code }) => {
         setRoomCode(code);
         setScreen('playerLobby');
+        setShowMoon(true);
       }),
       on('lobby_update', ({ players, hostName }) => { setPlayers(players); if (hostName) setLobbyHostName(hostName); }),
       on('role_assigned', ({ role, bonusCard }) => {
@@ -59,15 +68,18 @@ export default function App() {
         setFading(true);
         setTimeout(() => setScreen('escritorio'), 2500);
         setTimeout(() => setScreen('roleCard'), 6000);
+        setTimeout(() => setScreen('question'), 9500);
       }),
       on('monster_team', ({ monsters }) => setMonsterTeam(monsters)),
+      on('chat_message', (msg) => setChatMessages(prev => [...prev, msg])),
       on('phase_change', ({ phase, turn, eliminated, alivePlayers }) => {
         setPhase(phase);
         setTurn(turn);
         if (eliminated !== undefined) setEliminated(eliminated);
         if (alivePlayers) setAlivePlayers(alivePlayers);
+        // rondas posteriores: ir directo a night/day sin pasar por roleCard
         if (phase === 'night') setScreen('night');
-        if (phase === 'day') setScreen('day');
+        if (phase === 'day') { setChatMessages([]); setScreen('day'); }
         if (phase === 'vote') setScreen('vote');
       }),
       on('vote_result', ({ eliminated, alivePlayers }) => {
@@ -109,6 +121,8 @@ export default function App() {
     emit('join_room', { code, name });
   };
 
+  const handleSendChat = (message) => emit('chat_message', { code: roomCode, message });
+
   const handleStart = () => {
     setFading(true);
     setTimeout(() => emit('start_game', { code: roomCode }), 2500);
@@ -119,6 +133,9 @@ export default function App() {
 
   return (
     <div className="app">
+      {showMoon && (
+        <MoonLoading onDone={() => { setShowMoon(false); stopHalloween(); }} />
+      )}
       {fading && <div className="school-fade" />}
       {error && <div className="error-toast" onClick={() => setError('')}>⚠️ {error}</div>}
       {inspectorResult && (
@@ -132,6 +149,7 @@ export default function App() {
       {screen === 'playerLobby' && <PlayerLobby code={roomCode} name={myName} players={players} hostName={lobbyHostName} hostLeft={hostLeft} onLeave={() => { setScreen('home'); setRoomCode(''); setPlayers([]); setHostLeft(false); setLobbyHostName(''); }} />}
       {screen === 'escritorio' && <div className="escritorio-reveal" />}
       {screen === 'roleCard' && <RoleCard role={myRole} bonusCard={myBonus} onConfirm={afterRoleCard} />}
+      {screen === 'question' && <QuestionCard onDone={afterRoleCard} />}
       {screen === 'night' && (
         <NightPhase
           role={myRole}
@@ -146,6 +164,8 @@ export default function App() {
           myBonus={myBonus}
           bonusUsed={bonusUsed}
           onBonusUsed={() => setBonusUsed(true)}
+          hostName={lobbyHostName}
+          players={players}
         />
       )}
       {screen === 'day' && (
@@ -157,6 +177,11 @@ export default function App() {
           role={myRole}
           myBonus={myBonus}
           monsterTeam={monsterTeam}
+          hostName={lobbyHostName}
+          myId={socketId()}
+          myName={myName}
+          chatMessages={chatMessages}
+          onSendChat={handleSendChat}
         />
       )}
       {screen === 'vote' && (
@@ -166,6 +191,13 @@ export default function App() {
           canVote={canVote}
           emit={emit}
           code={roomCode}
+          role={myRole}
+          myBonus={myBonus}
+          monsterTeam={monsterTeam}
+          hostName={lobbyHostName}
+          myName={myName}
+          chatMessages={chatMessages}
+          onSendChat={handleSendChat}
         />
       )}
       {screen === 'gameOver' && gameOverData && (

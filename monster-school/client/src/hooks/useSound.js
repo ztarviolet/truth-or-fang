@@ -8,6 +8,18 @@ descanso.loop = true;
 const beep = new Audio('/BEEp.mp3');
 const swoosh = new Audio('/Swoosh.mp3');
 
+let audioUnlocked = false;
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  halloween.play().catch(() => {});
+}
+
+document.addEventListener('click', unlockAudio, { once: true });
+document.addEventListener('keydown', unlockAudio, { once: true });
+document.addEventListener('touchstart', unlockAudio, { once: true });
+
 export function useSound() {
   const playPop = () => { pop.currentTime = 0; pop.play(); };
   const playJoin = () => { join.currentTime = 0; join.play(); };
