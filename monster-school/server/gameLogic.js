@@ -20,22 +20,29 @@ function assignRoles(playerIds) {
   const count = playerIds.length;
   const roles = [];
 
-  // Inspector Grammar (1)
-  roles.push(ROLES.INSPECTOR);
+  // Scale monsters: ~25% of players, min 1, max 5
+  const monsterCount = Math.min(5, Math.max(1, Math.round(count * 0.25)));
 
-  // Monsters (4-5 depending on count)
-  const monsterCount = count >= 20 ? 5 : 4;
-  roles.push(ROLES.MOMMY);
+  // Always include Lord Vampire as the main monster
   roles.push(ROLES.LORD_VAMPIRE);
-  for (let i = 0; i < Math.min(monsterCount - 2, 3); i++) roles.push(ROLES.WOLFMAN);
+  // Add Mommy if enough players
+  if (monsterCount >= 2) roles.push(ROLES.MOMMY);
+  // Fill remaining monster slots with Wolfmen
+  for (let i = roles.length; i < monsterCount; i++) roles.push(ROLES.WOLFMAN);
 
-  // Special normies
-  roles.push(ROLES.MONSTER_HUNTER);
-  roles.push(ROLES.SEEKER);
-  roles.push(ROLES.PROTECTOR);
-  roles.push(ROLES.SHAMAN);
-  roles.push(ROLES.SIBLINGS);
-  roles.push(ROLES.SIBLINGS);
+  // Scale special roles based on player count
+  const specialPool = [
+    ROLES.INSPECTOR,
+    ROLES.MONSTER_HUNTER,
+    ROLES.PROTECTOR,
+    ROLES.SEEKER,
+    ROLES.SHAMAN,
+    ROLES.SIBLINGS,
+    ROLES.SIBLINGS,
+  ];
+  // Use 1 special role per 2 remaining players after monsters, min 1
+  const specialCount = Math.min(specialPool.length, Math.max(1, Math.floor((count - monsterCount) / 2)));
+  for (let i = 0; i < specialCount; i++) roles.push(specialPool[i]);
 
   // Fill rest with normies
   while (roles.length < count) roles.push(ROLES.NORMIE);
@@ -71,7 +78,8 @@ function checkVictory(players) {
   const normies = alive.filter(p => !p.isMonster);
 
   if (monsters.length === 0) return 'normies';
-  if (monsters.length >= normies.length - 2) return 'monsters';
+  // Monsters win when they equal or outnumber normies
+  if (monsters.length >= normies.length) return 'monsters';
   return null;
 }
 

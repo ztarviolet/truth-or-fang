@@ -28,7 +28,7 @@ function HostBoard({ turn }) {
 }
 
 // Contenido del pizarrón para JUGADORES con acción
-function PlayerBoard({ role, targets, selected, onSelect, actionDone, monsterTeam, bonusMode }) {
+function PlayerBoard({ role, targets, selected, onSelect, actionDone, monsterTeam, bonusMode, bonusPending, myBonus }) {
   const actionVerb = {
     'Wolfman': '🐺 Choose your victim:',
     'Lord Vampire': '🧛 Choose to transform:',
@@ -39,13 +39,14 @@ function PlayerBoard({ role, targets, selected, onSelect, actionDone, monsterTea
     'Inspector Grammar': '🔍 Choose to inspect:',
   };
 
-  if (actionDone) {
+  if (actionDone && !bonusMode) {
     return (
       <div className="board-content">
         <span className="board-line board-title">🌙 Night Phase</span>
         <span className="board-line board-divider">— — — — — — —</span>
         <span className="board-line">✅ Action submitted!</span>
-        <span className="board-line board-hint">Waiting for others...</span>
+        {bonusPending && <span className="board-line board-hint">🛡️ Shield vote cast — waiting for others...</span>}
+        {!bonusPending && <span className="board-line board-hint">Waiting for others...</span>}
       </div>
     );
   }
@@ -60,7 +61,9 @@ function PlayerBoard({ role, targets, selected, onSelect, actionDone, monsterTea
         </span>
       )}
       <span className="board-line board-sub">
-        {bonusMode ? '🌕 Full Moon — pick 2nd target:' : actionVerb[role]}
+        {bonusMode
+          ? myBonus === 'Silver Shield' ? '🛡️ Vote: who to protect with the Shield?' : '🌕 Full Moon — pick 2nd target:'
+          : actionVerb[role]}
       </span>
       {targets.map(p => (
         <span
@@ -93,6 +96,7 @@ export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn
   const [selected, setSelected] = useState(null);
   const [actionDone, setActionDone] = useState(false);
   const [bonusMode, setBonusMode] = useState(false);
+  const [bonusPending, setBonusPending] = useState(false); // shield voted but not confirmed yet
 
   const canAct = CAN_ACT.includes(role);
   const targets = alivePlayers.filter(p => p.id !== myId);
@@ -113,29 +117,33 @@ export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn
   };
 
   const handleBonus = () => {
-    if (myBonus === 'Silver Shield' || myBonus === 'Garlic Necklace') {
-      emit('use_bonus_card', { code, targetId: myId });
-      onBonusUsed();
-    } else {
+    if (myBonus === 'Full Moon') {
       setBonusMode(true);
+    } else if (myBonus === 'Silver Shield') {
+      setBonusMode(true); // pick a target to protect
     }
+    // Garlic Necklace is automatic, no button needed
+  };
+
+  const handleBonusConfirm = () => {
+    if (!selected) return;
+    emit('use_bonus_card', { code, targetId: selected });
+    onBonusUsed();
+    setBonusMode(false);
+    setBonusPending(myBonus === 'Silver Shield'); // shield waits for consensus
+    setSelected(null);
   };
 
   const handleSeatClick = (p) => {
+    if (bonusMode) { setSelected(p.id); return; }
     if (!canAct || actionDone) return;
-    if (bonusMode) {
-      emit('use_bonus_card', { code, targetId: p.id });
-      onBonusUsed();
-      setBonusMode(false);
-      return;
-    }
     setSelected(p.id);
   };
 
   const boardContent = isHost
     ? <HostBoard turn={turn} />
     : canAct
-      ? <PlayerBoard role={role} targets={targets} selected={selected} onSelect={handleSelect} actionDone={actionDone} monsterTeam={monsterTeam} bonusMode={bonusMode} />
+      ? <PlayerBoard role={role} targets={targets} selected={selected} onSelect={handleSelect} actionDone={actionDone} monsterTeam={monsterTeam} bonusMode={bonusMode} bonusPending={bonusPending} myBonus={myBonus} />
       : <SleepBoard turn={turn} />;
 
   return (
@@ -148,17 +156,28 @@ export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn
       isVoting={false}
       boardContent={boardContent}
     >
-      {/* Botón confirmar solo si hay selección */}
-      {canAct && !actionDone && selected && !isHost && (
+      {canAct && !actionDone && selected && !isHost && !bonusMode && (
         <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={handleConfirm}>
           ✅ Confirm — {alivePlayers.find(p => p.id === selected)?.name}
         </button>
       )}
 
-      {myBonus && !bonusUsed && !bonusMode && !actionDone && !isHost && (
-        <button className="btn btn-bonus" onClick={handleBonus}>
-          {{ 'Full Moon': '🌕 Use Full Moon', 'Silver Shield': '🛡️ Use Silver Shield', 'Garlic Necklace': '🧄 Use Garlic Necklace' }[myBonus]}
+      {bonusMode && selected && (
+        <button className="btn btn-bonus" style={{ marginTop: 8 }} onClick={handleBonusConfirm}>
+          ✅ Use {myBonus} on {alivePlayers.find(p => p.id === selected)?.name}
         </button>
+      )}
+
+      {myBonus && myBonus !== 'Garlic Necklace' && !bonusUsed && !bonusMode && !isHost && (
+        <button className="btn btn-bonus" onClick={handleBonus}>
+          {{ 'Full Moon': '🌕 Use Full Moon', 'Silver Shield': '🛡️ Vote Shield Target' }[myBonus]}
+        </button>
+      )}
+
+      {myBonus === 'Garlic Necklace' && !bonusUsed && !isHost && (
+        <div className="btn btn-bonus" style={{ opacity: 0.7, cursor: 'default' }}>
+          🧄 Garlic Necklace — activates automatically
+        </div>
       )}
 
       {isHost && (

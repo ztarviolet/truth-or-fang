@@ -2,9 +2,7 @@ import { useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useSound } from '../hooks/useSound';
 
-const CLIENT_URL = import.meta.env.VITE_SERVER_URL
-  ? import.meta.env.VITE_SERVER_URL.replace(':3001', ':5173')
-  : window.location.origin;
+const CLIENT_URL = window.location.origin;
 
 export default function HostLobby({ code, players, onStart, onBack }) {
   const joinUrl = `${CLIENT_URL}?join=${code}`;
