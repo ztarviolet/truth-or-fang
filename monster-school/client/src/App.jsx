@@ -43,6 +43,8 @@ export default function App() {
   const [lobbyHostName, setLobbyHostName] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [disconnectMsg, setDisconnectMsg] = useState('');
+  const [nightEliminated, setNightEliminated] = useState(null);
+  const [voteResult, setVoteResult] = useState(null);
 
   useEffect(() => {
     if (fading) {
