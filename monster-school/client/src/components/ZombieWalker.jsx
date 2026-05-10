@@ -210,22 +210,47 @@ export default function ZombieWalker({ titleRef, subtitleRef, onHost, onJoin, dr
   // Activar caída desde arriba cuando dropping cambia a true
   useEffect(() => {
     if (!dropping) return;
-    dropStartRef.current = -80;
+    // Caida manejada por JS: empieza desde -110vh y baja hasta targetY
+    const titleBounds = titleRef?.current?.getBoundingClientRect();
+    if (!titleBounds) return;
+    const targetY = titleBounds.top - 65;
+    let currentY = -window.innerHeight;
+    const startTime = performance.now();
+    const duration = 1400;
+
     actionRef.current = 'drop_in';
     setAction('drop_in');
     clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      // IMPACTO: squash instantaneo + polvo + letras aplastadas
-      actionRef.current = 'fallen';
-      setAction('fallen');
-      setDust(true);
-      setTimeout(() => setDust(false), 800);
-      if (titleRef?.current) {
-        titleRef.current.querySelectorAll('.zw-title-letter, .zw-title-space').forEach(s => {
-          s.classList.add('zw-letter-smash');
-        });
+
+    const fallLoop = (t) => {
+      const elapsed = t - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-in: acelera hacia abajo
+      const eased = progress * progress;
+      currentY = -window.innerHeight + (targetY + window.innerHeight) * eased;
+      setPos(p => ({ ...p, y: currentY, visible: true }));
+
+      if (progress < 1) {
+        requestAnimationFrame(fallLoop);
+      } else {
+        // IMPACTO
+        actionRef.current = 'fallen';
+        setAction('fallen');
+        setDust(true);
+        setTimeout(() => setDust(false), 800);
+        if (titleRef?.current) {
+          const zombieCX = xRef.current + 18;
+          titleRef.current.querySelectorAll('.zw-title-letter, .zw-title-space').forEach(s => {
+            const r = s.getBoundingClientRect();
+            // Solo aplastar las letras cercanas al punto de impacto
+            if (Math.abs((r.left + r.right) / 2 - zombieCX) < 40) {
+              s.classList.add('zw-letter-smash');
+            }
+          });
+        }
       }
-    }, 1400);
+    };
+    requestAnimationFrame(fallLoop);
   }, [dropping, titleRef]);
 
   const handleShock = () => {
