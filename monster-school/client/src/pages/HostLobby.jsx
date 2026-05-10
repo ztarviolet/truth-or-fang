@@ -1,15 +1,20 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useSound } from '../hooks/useSound';
 
-const CLIENT_URL = import.meta.env.VITE_SERVER_URL
-  ? import.meta.env.VITE_SERVER_URL.replace(':3001', ':5173')
-  : window.location.origin;
-
 export default function HostLobby({ code, players, onStart, onBack }) {
-  const joinUrl = `${CLIENT_URL}?join=${code}`;
   const { playPop, playJoin, playDescanso, stopDescanso } = useSound();
   const isFirst = useRef(true);
+  const [networkIp, setNetworkIp] = useState(window.location.hostname);
+
+  useEffect(() => {
+    fetch(`http://${window.location.hostname}:3001/network-ip`)
+      .then(r => r.json())
+      .then(({ ip }) => setNetworkIp(ip))
+      .catch(() => {});
+  }, []);
+
+  const joinUrl = `http://${networkIp}:5173?join=${code}`;
 
   useEffect(() => {
     playDescanso();

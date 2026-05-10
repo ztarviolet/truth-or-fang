@@ -7,6 +7,18 @@ const { assignRoles, checkVictory, ROLES, MONSTER_ROLES } = require('./gameLogic
 const app = express();
 const allowedOrigin = process.env.CLIENT_ORIGIN || true;
 app.use(cors({ origin: allowedOrigin }));
+app.get('/network-ip', (req, res) => {
+  const { networkInterfaces } = require('os');
+  const nets = networkInterfaces();
+  let ip = '127.0.0.1';
+  for (const iface of Object.values(nets)) {
+    for (const net of iface) {
+      if (net.family === 'IPv4' && !net.internal) { ip = net.address; break; }
+    }
+  }
+  res.json({ ip });
+});
+
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: allowedOrigin } });
 

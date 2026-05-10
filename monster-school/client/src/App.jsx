@@ -15,7 +15,7 @@ import './App.css';
 
 export default function App() {
   const { emit, on, socketId } = useSocket();
-  const { playHalloween, stopHalloween } = useSound();
+  const { playHalloween, stopHalloween, playBeep } = useSound();
 
   const [screen, setScreen] = useState('home');
   const [showMoon, setShowMoon] = useState(false);
@@ -40,6 +40,7 @@ export default function App() {
   const [hostLeft, setHostLeft] = useState(false);
   const [lobbyHostName, setLobbyHostName] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
+  const [disconnectMsg, setDisconnectMsg] = useState('');
 
   useEffect(() => {
     if (fading) {
@@ -102,6 +103,11 @@ export default function App() {
           setHostLeft(false);
         }, 3000);
       }),
+      on('player_disconnected', ({ name }) => {
+        playBeep();
+        setDisconnectMsg(`${name} has disconnected`);
+        setTimeout(() => setDisconnectMsg(''), 4000);
+      }),
       on('error', (msg) => setError(msg)),
     ];
     return () => offs.forEach(off => off && off());
@@ -138,6 +144,9 @@ export default function App() {
       )}
       {fading && <div className="school-fade" />}
       {error && <div className="error-toast" onClick={() => setError('')}>⚠️ {error}</div>}
+      {disconnectMsg && (
+        <div className="disconnect-toast">🔌 {disconnectMsg}</div>
+      )}
       {inspectorResult && (
         <div className="inspector-toast" onClick={() => setInspectorResult(null)}>
           🔍 {inspectorResult.pronoun} is {inspectorResult.result}
