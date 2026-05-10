@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useSound } from '../hooks/useSound';
 
+const CLIENT_URL = window.location.origin;
+
 export default function HostLobby({ code, players, onStart, onBack }) {
   const { playPop, playJoin, playDescanso, stopDescanso } = useSound();
   const isFirst = useRef(true);

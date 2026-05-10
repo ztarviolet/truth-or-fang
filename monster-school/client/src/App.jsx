@@ -11,6 +11,8 @@ import NightPhase from './pages/NightPhase';
 import DayPhase from './pages/DayPhase';
 import VotePhase from './pages/VotePhase';
 import GameOver from './pages/GameOver';
+import NightResult from './pages/NightResult';
+import VoteResult from './pages/VoteResult';
 import './App.css';
 
 export default function App() {
@@ -76,16 +78,32 @@ export default function App() {
       on('phase_change', ({ phase, turn, eliminated, alivePlayers }) => {
         setPhase(phase);
         setTurn(turn);
-        if (eliminated !== undefined) setEliminated(eliminated);
         if (alivePlayers) setAlivePlayers(alivePlayers);
-        // rondas posteriores: ir directo a night/day sin pasar por roleCard
         if (phase === 'night') setScreen('night');
-        if (phase === 'day') { setChatMessages([]); setScreen('day'); }
+        if (phase === 'day') {
+          setChatMessages([]);
+          setNightEliminated(eliminated || null);
+          setScreen('nightResult');
+        }
         if (phase === 'vote') setScreen('vote');
       }),
-      on('vote_result', ({ eliminated, alivePlayers }) => {
-        setEliminated(eliminated);
+      on('vote_result', ({ eliminated, alivePlayers, tie }) => {
         if (alivePlayers) setAlivePlayers(alivePlayers);
+        setVoteResult({ eliminated, tie });
+        setScreen('voteResult');
+      }),
+      on('transformed', ({ newRole }) => {
+        setMyRole(newRole);
+        setScreen('transformedCard');
+      }),
+      on('garlic_activated', () => {
+        setError('🧄 Your Garlic Necklace blocked the vampire transformation!');
+      }),
+      on('transform_blocked', ({ targetName }) => {
+        setError(`🧄 ${targetName} had a Garlic Necklace — transformation blocked!`);
+      }),
+      on('shield_activated', () => {
+        setError('🛡️ Silver Shield activated! The target is protected tonight.');
       }),
       on('silenced', () => setCanVote(false)),
       on('inspector_result', (data) => setInspectorResult(data)),
@@ -158,6 +176,19 @@ export default function App() {
       {screen === 'playerLobby' && <PlayerLobby code={roomCode} name={myName} players={players} hostName={lobbyHostName} hostLeft={hostLeft} onLeave={() => { setScreen('home'); setRoomCode(''); setPlayers([]); setHostLeft(false); setLobbyHostName(''); }} />}
       {screen === 'escritorio' && <div className="escritorio-reveal" />}
       {screen === 'roleCard' && <RoleCard role={myRole} bonusCard={myBonus} onConfirm={afterRoleCard} />}
+      {screen === 'transformedCard' && <RoleCard role={myRole} bonusCard={myBonus} onConfirm={() => setScreen('night')} />}
+      {screen === 'nightResult' && (
+        <NightResult
+          eliminated={nightEliminated}
+          onDone={() => setScreen('day')}
+        />
+      )}
+      {screen === 'voteResult' && (
+        <VoteResult
+          result={voteResult}
+          onDone={() => setScreen('night')}
+        />
+      )}
       {screen === 'question' && <QuestionCard onDone={afterRoleCard} />}
       {screen === 'night' && (
         <NightPhase
@@ -179,7 +210,7 @@ export default function App() {
       )}
       {screen === 'day' && (
         <DayPhase
-          eliminated={eliminated}
+          eliminated={nightEliminated}
           alivePlayers={alivePlayers}
           isHost={isHost}
           onAdvance={handleAdvancePhase}

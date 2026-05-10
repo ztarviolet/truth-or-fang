@@ -120,9 +120,17 @@ io.on('connection', (socket) => {
     const player = room.players[socket.id];
     if (!player || !player.bonusCard || player.bonusUsed) return;
 
-    player.bonusUsed = true;
-    room.nightActions[`bonus_${socket.id}`] = { card: player.bonusCard, actorId: socket.id, targetId };
-    socket.emit('bonus_confirmed', { card: player.bonusCard });
+    if (player.bonusCard === 'Silver Shield') {
+      // Register vote but don't spend yet — resolved at night end
+      if (!room.shieldVotes) room.shieldVotes = {};
+      room.shieldVotes[socket.id] = targetId;
+      socket.emit('bonus_confirmed', { card: player.bonusCard, pending: true });
+    } else if (player.bonusCard === 'Full Moon') {
+      player.bonusUsed = true;
+      room.nightActions[`bonus_${socket.id}`] = { card: player.bonusCard, actorId: socket.id, targetId };
+      socket.emit('bonus_confirmed', { card: player.bonusCard });
+    }
+    // Garlic Necklace is automatic — no manual activation
   });
 
   // NIGHT ACTION: monster chooses victim
@@ -219,30 +227,51 @@ function resolveNightIfReady(room, code) {
 
 function resolveNight(room, code) {
   const killAction = room.nightActions['monster_kill'];
+  const vampireAction = room.nightActions['vampire_transform'];
   let eliminated = null;
 
-  // Collect bonus cards used this night
-  const shieldTargets = new Set();
-  const fullMoonActorId = Object.values(room.nightActions)
-    .find(a => a.card === 'Full Moon')?.actorId;
-  const fullMoonTargetId = Object.values(room.nightActions)
-    .find(a => a.card === 'Full Moon')?.targetId;
+  // --- Silver Shield: activate only if all 4 holders voted for the same target ---
+  const shieldHolders = Object.values(room.players).filter(p => p.bonusCard === 'Silver Shield' && p.isAlive);
+  const shieldVotes = room.shieldVotes || {};
+  let shieldProtectedId = null;
 
-  Object.values(room.nightActions).forEach(a => {
-    if (a.card === 'Silver Shield') shieldTargets.add(a.actorId);
-    if (a.card === 'Garlic Necklace') shieldTargets.add(a.actorId);
-  });
+  if (shieldHolders.length > 0) {
+    const votes = shieldHolders.map(p => shieldVotes[p.id]).filter(Boolean);
+    const allSameTarget = votes.length === shieldHolders.length && votes.every(v => v === votes[0]);
+    if (allSameTarget) {
+      shieldProtectedId = votes[0];
+      // Spend all shield cards
+      shieldHolders.forEach(p => { p.bonusUsed = true; p.bonusCard = null; });
+      io.to(code).emit('shield_activated', { targetId: shieldProtectedId });
+    }
+    // If not unanimous, cards are NOT spent
+  }
+  room.shieldVotes = {};
 
+  // --- Garlic Necklace: auto-block vampire transform ---
+  if (vampireAction) {
+    const target = room.players[vampireAction.targetId];
+    if (target && target.bonusCard === 'Garlic Necklace' && !target.bonusUsed) {
+      target.bonusUsed = true;
+      target.bonusCard = null;
+      io.to(target.id).emit('garlic_activated');
+      io.to(vampireAction.actorId).emit('transform_blocked', { targetName: target.name });
+      delete room.nightActions['vampire_transform'];
+    }
+  }
+
+  // --- Kill action ---
   if (killAction) {
     const target = room.players[killAction.targetId];
     const protectAction = room.nightActions['protect'];
-    const isShielded = shieldTargets.has(killAction.targetId);
+    const isShieldProtected = shieldProtectedId === killAction.targetId;
+    const isProtectorSaved = protectAction && protectAction.targetId === killAction.targetId && room.protectorSaves > 0;
 
-    if (protectAction && protectAction.targetId === killAction.targetId && room.protectorSaves > 0) {
+    if (isProtectorSaved) {
       room.protectorSaves--;
       room.log.push(`${target.name} was saved by The Protector!`);
-    } else if (isShielded) {
-      room.log.push(`${target.name} was protected by a bonus card!`);
+    } else if (isShieldProtected) {
+      room.log.push(`${target.name} was protected by the Silver Shield!`);
     } else if (target && target.isAlive) {
       target.isAlive = false;
       eliminated = { id: target.id, name: target.name, role: target.role };
@@ -250,17 +279,19 @@ function resolveNight(room, code) {
     }
   }
 
-  // Full Moon: Wolfman kills a second target
-  if (fullMoonActorId && fullMoonTargetId) {
-    const actor = room.players[fullMoonActorId];
-    const target = room.players[fullMoonTargetId];
-    if (actor?.role === 'Wolfman' && target?.isAlive && !shieldTargets.has(fullMoonTargetId)) {
+  // --- Full Moon: Wolfman kills a second target ---
+  const fullMoonAction = Object.values(room.nightActions).find(a => a.card === 'Full Moon');
+  if (fullMoonAction) {
+    const actor = room.players[fullMoonAction.actorId];
+    const target = room.players[fullMoonAction.targetId];
+    const isShieldProtected = shieldProtectedId === fullMoonAction.targetId;
+    if (actor?.role === 'Wolfman' && target?.isAlive && !isShieldProtected) {
       target.isAlive = false;
       room.log.push(`${target.name} was eliminated by Full Moon!`);
     }
   }
 
-  // Handle Mommy silencing
+  // --- Mommy silence ---
   const mommyAction = room.nightActions['mommy_silence'];
   if (mommyAction) {
     const target = room.players[mommyAction.targetId];
@@ -271,20 +302,24 @@ function resolveNight(room, code) {
     }
   }
 
-  // Handle Lord Vampire transform (every 2 turns)
-  const vampireAction = room.nightActions['vampire_transform'];
-  if (vampireAction && room.turn % 2 === 0) {
-    const target = room.players[vampireAction.targetId];
+  // --- Lord Vampire transform (every 2 turns, garlic already handled above) ---
+  const vampireActionFinal = room.nightActions['vampire_transform'];
+  if (vampireActionFinal && room.turn % 2 === 0) {
+    const target = room.players[vampireActionFinal.targetId];
     const vampireCount = Object.values(room.players).filter(p => p.role === ROLES.VAMPIRE && p.isAlive).length;
     if (target && !target.isMonster && vampireCount < 5) {
       target.role = ROLES.VAMPIRE;
       target.isMonster = true;
       io.to(target.id).emit('transformed', { newRole: ROLES.VAMPIRE });
+      const monsterList = Object.values(room.players)
+        .filter(p => MONSTER_ROLES.includes(p.role) && p.isAlive)
+        .map(p => ({ id: p.id, name: p.name, role: p.role }));
+      monsterList.forEach(m => io.to(m.id).emit('monster_team', { monsters: monsterList }));
       room.log.push(`${target.name} was transformed into a Vampire!`);
     }
   }
 
-  // Tick silenced turns
+  // --- Tick silenced turns ---
   Object.values(room.players).forEach(p => {
     if (p.silencedTurns > 0) {
       p.silencedTurns--;
@@ -304,9 +339,7 @@ function resolveNight(room, code) {
     turn: room.turn,
     eliminated,
     log: room.log.slice(-5),
-    alivePlayers: Object.values(room.players)
-      .filter(p => p.isAlive)
-      .map(p => ({ id: p.id, name: p.name })),
+    alivePlayers: Object.values(room.players).filter(p => p.isAlive).map(p => ({ id: p.id, name: p.name })),
   });
 }
 
@@ -318,7 +351,22 @@ function resolveVote(room, code) {
 
   const maxVotes = Math.max(...Object.values(tally));
   const candidates = Object.keys(tally).filter(id => tally[id] === maxVotes);
-  const eliminatedId = candidates[Math.floor(Math.random() * candidates.length)];
+  // Tie: no one is eliminated
+  if (candidates.length > 1) {
+    room.votes = {};
+    const victory = checkVictory(room.players);
+    if (victory) return endGame(room, code, victory);
+    room.phase = 'night';
+    io.to(code).emit('vote_result', {
+      eliminated: null,
+      tie: true,
+      alivePlayers: Object.values(room.players).filter(p => p.isAlive).map(p => ({ id: p.id, name: p.name })),
+    });
+    setTimeout(() => io.to(code).emit('phase_change', { phase: 'night', turn: room.turn }), 6000);
+    return;
+  }
+
+  const eliminatedId = candidates[0];
   const eliminated = room.players[eliminatedId];
 
   if (eliminated) {
@@ -352,15 +400,13 @@ function resolveVote(room, code) {
 
   room.phase = 'night';
   io.to(code).emit('vote_result', {
-    eliminated: eliminated ? { id: eliminated.id, name: eliminated.name, role: eliminated.role } : null,
-    alivePlayers: Object.values(room.players)
-      .filter(p => p.isAlive)
-      .map(p => ({ id: p.id, name: p.name })),
+    eliminated: eliminated ? { id: eliminated.id, name: eliminated.name, role: eliminated.role, isMonster: eliminated.isMonster } : null,
+    alivePlayers: Object.values(room.players).filter(p => p.isAlive).map(p => ({ id: p.id, name: p.name })),
   });
 
   setTimeout(() => {
     io.to(code).emit('phase_change', { phase: 'night', turn: room.turn });
-  }, 5000);
+  }, 6000);
 }
 
 function endGame(room, code, winner) {
