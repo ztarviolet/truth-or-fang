@@ -981,8 +981,11 @@ body {
 @keyframes zw-bolt-anim { from { transform: translateX(-50%) scale(1) rotate(-15deg); opacity: 1; } to { transform: translateX(-50%) scale(1.5) rotate(15deg); opacity: 0.7; } }
 
 /* CAIDA DESDE ARRIBA (cambio de pagina) */
-.zw-drop-in { }
-
+.zw-drop-in {
+  animation: zw-drop-in-fall 1.4s cubic-bezier(0.2, 0, 1, 1) both;
+}
+@keyframes zw-drop-in-fall {
+  0%   { transform: translateY(-110vh) scaleY(1.2); }
   85%  { transform: translateY(-8px)   scaleY(1.1); }
   100% { transform: translateY(0)      scaleY(1); }
 }
