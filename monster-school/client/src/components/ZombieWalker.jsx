@@ -130,7 +130,7 @@ export default function ZombieWalker({ titleRef, subtitleRef, onHost, onJoin, dr
       if (b) {
         boundsRef.current = b;
         // Siempre mover en X (incluso durante acciones)
-        if (actionRef.current !== 'shocked' && actionRef.current !== 'faceplant' && actionRef.current !== 'getup' && actionRef.current !== 'fall_btn' && actionRef.current !== 'btn_host' && actionRef.current !== 'btn_join' && actionRef.current !== 'fallen') {
+        if (actionRef.current !== 'shocked' && actionRef.current !== 'faceplant' && actionRef.current !== 'getup' && actionRef.current !== 'fall_btn' && actionRef.current !== 'btn_host' && actionRef.current !== 'btn_join' && actionRef.current !== 'fallen' && actionRef.current !== 'impact' && actionRef.current !== 'drop_in') {
           xRef.current += dirRef.current * SPEED * dt;
           if (xRef.current > b.right - 36) { xRef.current = b.right - 36; dirRef.current = -1; }
           if (xRef.current < b.left)       { xRef.current = b.left;       dirRef.current =  1; }
@@ -211,29 +211,41 @@ export default function ZombieWalker({ titleRef, subtitleRef, onHost, onJoin, dr
   useEffect(() => {
     if (!dropping) return;
     dropStartRef.current = -80;
-    doAction('drop_in', 800, () => {
-      setDust(true);
-      setTimeout(() => setDust(false), 600);
-      // Aplastar todas las letras del título al impactar
-      if (titleRef?.current) {
-        const spans = titleRef.current.querySelectorAll('.zw-title-letter, .zw-title-space');
-        spans.forEach(s => {
-          s.classList.add('zw-letter-smash');
-          setTimeout(() => s.classList.remove('zw-letter-smash'), 600);
-        });
-      }
-      // Queda tirado
+    actionRef.current = 'drop_in';
+    setAction('drop_in');
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      // IMPACTO: squash instantaneo + polvo + letras aplastadas
       actionRef.current = 'fallen';
       setAction('fallen');
-    });
-  }, [dropping, doAction, scheduleRandom, titleRef]);
+      setDust(true);
+      setTimeout(() => setDust(false), 800);
+      if (titleRef?.current) {
+        titleRef.current.querySelectorAll('.zw-title-letter, .zw-title-space').forEach(s => {
+          s.classList.add('zw-letter-smash');
+        });
+      }
+    }, 1400);
+  }, [dropping, titleRef]);
 
   const handleShock = () => {
     if (actionRef.current === 'shocked') return;
     playDescarga();
     if (actionRef.current === 'fallen') {
-      // La descarga lo levanta
-      doAction('shocked', 700, () => doAction('getup', 500, scheduleRandom));
+      // La descarga lo levanta y las letras rebotan
+      doAction('shocked', 700, () => {
+        doAction('getup', 500, () => {
+          // Quitar smash y poner bounce en las letras
+          if (titleRef?.current) {
+            titleRef.current.querySelectorAll('.zw-title-letter, .zw-title-space').forEach(s => {
+              s.classList.remove('zw-letter-smash');
+              s.classList.add('zw-letter-bounce');
+              setTimeout(() => s.classList.remove('zw-letter-bounce'), 800);
+            });
+          }
+          scheduleRandom();
+        });
+      });
     } else {
       doAction('shocked', 700, scheduleRandom);
     }
@@ -250,15 +262,15 @@ export default function ZombieWalker({ titleRef, subtitleRef, onHost, onJoin, dr
   const isThrow     = action === 'throw';
 
   let wrapCls = 'zw-wrap ';
-  if (isShocked)              wrapCls += 'zw-shocked';
-  else if (isJump)            wrapCls += 'zw-jump';
-  else if (action === 'drop_in') wrapCls += 'zw-drop-in';
-  else if (action === 'fallen')  wrapCls += 'zw-fallen';
-  else if (isFaceplant)       wrapCls += 'zw-faceplant';
-  else if (isGetup)           wrapCls += 'zw-getup';
-  else if (isFallBtn)         wrapCls += 'zw-fall-btn';
+  if (isShocked)                   wrapCls += 'zw-shocked';
+  else if (isJump)                 wrapCls += 'zw-jump';
+  else if (action === 'drop_in')   wrapCls += 'zw-drop-in';
+  else if (action === 'fallen')    wrapCls += 'zw-fallen';
+  else if (isFaceplant)            wrapCls += 'zw-faceplant';
+  else if (isGetup)                wrapCls += 'zw-getup';
+  else if (isFallBtn)              wrapCls += 'zw-fall-btn';
   else if (isBtnHost || isBtnJoin) wrapCls += 'zw-in-btn';
-  else                        wrapCls += 'zw-walk';
+  else                             wrapCls += 'zw-walk';
 
   const noLegs = isShocked || isFaceplant || isGetup || isFallBtn || isBtnHost || isBtnJoin;
   const armL = isShocked ? 'zw-arm-shock' : isFaceplant ? 'zw-arm-fp-l' : isLift ? 'zw-arm-lift-l' : isThrow ? 'zw-arm-throw' : 'zw-arm-l';
@@ -272,6 +284,7 @@ export default function ZombieWalker({ titleRef, subtitleRef, onHost, onJoin, dr
         <FlyingLetter key={fl.id} letter={fl.letter} startX={fl.startX} startY={fl.startY}
           onDone={() => setFlyLetters(p => p.filter(l => l.id !== fl.id))} />
       ))}
+      {dust && <span className="zw-dust" style={{ position: 'fixed', left: pos.x - 20, top: pos.y + 50 }} />}
 
       <div
         className={wrapCls}
@@ -280,7 +293,6 @@ export default function ZombieWalker({ titleRef, subtitleRef, onHost, onJoin, dr
         onTouchStart={handleShock}
       >
         {isShocked && <span className="zw-bolt">⚡</span>}
-        {dust && <span className="zw-dust" />}
         {(isBtnHost || isBtnJoin) && <span className="zw-btn-label">{isBtnHost ? '🎓 Host!' : '🎮 Join!'}</span>}
         {liftLetter && <span className="zw-held-letter">{liftLetter}</span>}
 

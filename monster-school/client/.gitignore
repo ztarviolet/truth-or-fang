@@ -1,6 +1,10 @@
 # Heavy audio files
 public/*.mp3
 
+# Environment variables
+.env
+.env.*
+
 # Logs
 logs
 *.log
