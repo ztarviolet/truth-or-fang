@@ -9,7 +9,7 @@ export default function Home({ onHost, onJoin, initialMode }) {
   const [code, setCode] = useState(joinCode);
   const [mode, setMode] = useState(initialMode || (joinCode ? 'join' : null));
   const [zombieDrop, setZombieDrop] = useState(false);
-  const { playPop, playHalloween, stopHalloween, playBeep } = useSound();
+  const { playPop, playHalloween, stopAllMusic, playBeep } = useSound();
   const titleRef    = useRef(null);
   const subtitleRef = useRef(null);
 
@@ -22,15 +22,15 @@ export default function Home({ onHost, onJoin, initialMode }) {
 
   useEffect(() => {
     playHalloween();
-    return () => stopHalloween();
+    return () => stopAllMusic();
   }, []);
 
   const handleHost = () => {
-    if (name.trim()) { stopHalloween(); onHost(name.trim()); }
+    if (name.trim()) { onHost(name.trim()); }
   };
 
   const handleJoin = () => {
-    if (name.trim() && code.trim()) { stopHalloween(); onJoin(name.trim(), code.trim().toUpperCase()); }
+    if (name.trim() && code.trim()) { onJoin(name.trim(), code.trim().toUpperCase()); }
   };
 
   return (

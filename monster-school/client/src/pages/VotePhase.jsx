@@ -2,6 +2,7 @@ import { useState } from 'react';
 import RoleTab from '../components/RoleTab';
 import ClassroomPhase from './ClassroomPhase';
 import Notebook from '../components/Notebook';
+import { useSound } from '../hooks/useSound';
 
 function VoteBoard({ targets, selected, onSelect, voted, canVote }) {
   if (voted) {
@@ -44,11 +45,18 @@ function VoteBoard({ targets, selected, onSelect, voted, canVote }) {
   );
 }
 
-export default function VotePhase({ alivePlayers, myId, canVote, emit, code, role, myBonus, monsterTeam, hostName, myName, chatMessages, onSendChat }) {
+export default function VotePhase({ alivePlayers, myId, canVote, emit, code, role, myBonus, monsterTeam, hostName, myName, chatMessages, onSendChat, isHost = false }) {
   const [selected, setSelected] = useState(null);
   const [voted, setVoted] = useState(false);
+  const { playBottlePop } = useSound();
 
   const targets = alivePlayers.filter(p => p.id !== myId);
+
+  const selectTarget = (id) => {
+    if (voted || !canVote || id === myId) return;
+    setSelected(id);
+    playBottlePop();
+  };
 
   const handleVote = () => {
     if (!selected || voted || !canVote) return;
@@ -61,14 +69,17 @@ export default function VotePhase({ alivePlayers, myId, canVote, emit, code, rol
       players={alivePlayers}
       hostName={hostName}
       myId={myId}
-      onSeatClick={(p) => { if (!voted && canVote && p.id !== myId) setSelected(p.id); }}
+      onSeatClick={(p) => selectTarget(p.id)}
       selectedId={selected}
       isVoting={canVote && !voted}
+      role={role}
+      monsterTeam={monsterTeam}
+      isHost={isHost}
       boardContent={
         <VoteBoard
           targets={targets}
           selected={selected}
-          onSelect={(id) => { if (!voted && canVote) setSelected(id); }}
+          onSelect={selectTarget}
           voted={voted}
           canVote={canVote}
         />

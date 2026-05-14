@@ -1,7 +1,13 @@
+import { useEffect } from 'react';
 import { useSound } from '../hooks/useSound';
 
 export default function PlayerLobby({ code, name, players, onLeave, hostLeft, hostName }) {
-  const { playPop } = useSound();
+  const { playPop, playLobbyMusic, stopDescanso } = useSound();
+
+  useEffect(() => {
+    playLobbyMusic();
+    return () => stopDescanso();
+  }, []);
 
   return (
     <div className="screen center lobby-bg">

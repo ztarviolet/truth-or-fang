@@ -1247,10 +1247,15 @@ body {
 
 /* Pared + pizarrón */
 .classroom-wall {
-  background: linear-gradient(180deg, #5c3d1e 0%, #3d2b0e 100%);
+  position: relative;
+  background:
+    linear-gradient(90deg, rgba(70,45,22,0.18) 1px, transparent 1px) 0 0 / 44px 100%,
+    linear-gradient(180deg, #624221 0%, #3d2b0e 100%);
   padding: 10px 16px 0;
   display: flex;
   justify-content: center;
+  min-height: 148px;
+  overflow: hidden;
 }
 
 .classroom-blackboard {
@@ -1267,6 +1272,245 @@ body {
   position: relative;
   overflow: hidden;
   min-height: 110px;
+  z-index: 3;
+}
+
+.classroom-window {
+  position: absolute;
+  left: clamp(10px, 4vw, 44px);
+  top: 16px;
+  width: 82px;
+  height: 58px;
+  border: 5px solid #6e4725;
+  border-radius: 4px;
+  background:
+    radial-gradient(circle at 70% 22%, rgba(255,238,170,0.9) 0 9px, transparent 10px),
+    linear-gradient(180deg, #17324a 0%, #203d59 55%, #0f2236 100%);
+  box-shadow: inset 0 0 18px rgba(255,255,255,0.08), 0 5px 12px rgba(0,0,0,0.35);
+  z-index: 1;
+}
+
+.classroom-window span {
+  position: absolute;
+  background: #6e4725;
+}
+
+.classroom-window span:nth-child(1),
+.classroom-window span:nth-child(2) {
+  left: 50%;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  transform: translateX(-50%);
+}
+
+.classroom-window span:nth-child(3),
+.classroom-window span:nth-child(4) {
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 4px;
+  transform: translateY(-50%);
+}
+
+.classroom-clock {
+  position: absolute;
+  right: clamp(12px, 5vw, 66px);
+  top: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 4px solid #e8dbc2;
+  background: radial-gradient(circle, #fff8df 0 52%, #d2b98c 54% 100%);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+  z-index: 2;
+}
+
+.clock-hand {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  background: #3b2510;
+  border-radius: 99px;
+  transform-origin: bottom center;
+}
+
+.clock-hour {
+  height: 12px;
+  transform: translate(-50%, -100%) rotate(35deg);
+}
+
+.clock-minute {
+  height: 16px;
+  transform: translate(-50%, -100%) rotate(116deg);
+}
+
+.classroom-poster {
+  position: absolute;
+  width: 58px;
+  height: 72px;
+  border: 4px solid #704925;
+  border-radius: 3px;
+  background: #ead7ac;
+  box-shadow: 0 5px 12px rgba(0,0,0,0.3);
+  z-index: 1;
+}
+
+.poster-rules {
+  left: clamp(12px, 13vw, 170px);
+  top: 82px;
+  display: grid;
+  place-items: center;
+  color: #3b2510;
+  font-family: 'Caveat', cursive;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.poster-rules i {
+  display: block;
+  width: 34px;
+  height: 3px;
+  background: rgba(59,37,16,0.35);
+  border-radius: 99px;
+}
+
+.poster-moon {
+  right: clamp(12px, 12vw, 160px);
+  top: 70px;
+  background: linear-gradient(180deg, #253b5b, #141827);
+}
+
+.poster-moon span {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  left: 14px;
+  top: 14px;
+  border-radius: 50%;
+  background: #f6e7a7;
+  box-shadow: 0 0 16px rgba(246,231,167,0.7);
+}
+
+.classroom-bookshelf {
+  position: absolute;
+  left: clamp(8px, 3vw, 34px);
+  bottom: 0;
+  width: 108px;
+  height: 52px;
+  border: 5px solid #523315;
+  border-bottom: 0;
+  background: linear-gradient(180deg, #7c5228, #5e3b1b);
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 7px 7px 0;
+  z-index: 2;
+}
+
+.classroom-bookshelf::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 22px;
+  height: 4px;
+  background: #3b2510;
+}
+
+.classroom-bookshelf span {
+  width: 7px;
+  height: 24px;
+  border-radius: 2px 2px 0 0;
+  background: #b54336;
+  box-shadow: inset 1px 0 rgba(255,255,255,0.25);
+}
+
+.classroom-bookshelf span:nth-child(2),
+.classroom-bookshelf span:nth-child(7) {
+  height: 31px;
+  background: #2c77a0;
+}
+
+.classroom-bookshelf span:nth-child(3),
+.classroom-bookshelf span:nth-child(8) {
+  height: 27px;
+  background: #e0b83e;
+}
+
+.classroom-bookshelf span:nth-child(4),
+.classroom-bookshelf span:nth-child(9) {
+  height: 35px;
+  background: #5d8f52;
+}
+
+.classroom-bookshelf span:nth-child(5),
+.classroom-bookshelf span:nth-child(10) {
+  height: 29px;
+  background: #77549a;
+}
+
+.classroom-lockers {
+  position: absolute;
+  right: clamp(6px, 3vw, 36px);
+  bottom: 0;
+  width: 94px;
+  height: 74px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 4px solid #314553;
+  border-bottom: 0;
+  background: #587485;
+  box-shadow: 0 5px 12px rgba(0,0,0,0.35);
+  z-index: 2;
+}
+
+.classroom-lockers span {
+  position: relative;
+  border-left: 1px solid rgba(255,255,255,0.18);
+  border-right: 1px solid rgba(0,0,0,0.2);
+  background: linear-gradient(180deg, #6f8b9b, #435e6d);
+}
+
+.classroom-lockers span::before,
+.classroom-lockers span::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  height: 2px;
+  background: rgba(17,31,39,0.45);
+  border-radius: 99px;
+}
+
+.classroom-lockers span::before { top: 12px; }
+.classroom-lockers span::after { top: 20px; }
+
+.classroom-trash {
+  position: absolute;
+  right: clamp(108px, 18vw, 236px);
+  bottom: 0;
+  width: 34px;
+  height: 34px;
+  border: 3px solid #26323a;
+  border-top: 7px solid #26323a;
+  border-radius: 3px 3px 8px 8px;
+  background: repeating-linear-gradient(90deg, #53646d 0 5px, #45565f 5px 10px);
+  transform: perspective(80px) rotateX(-10deg);
+  z-index: 2;
+}
+
+.classroom-trash span {
+  position: absolute;
+  left: 8px;
+  top: -18px;
+  width: 18px;
+  height: 18px;
+  background: #d7d1be;
+  border-radius: 45% 55% 48% 52%;
+  transform: rotate(-22deg);
+  box-shadow: 10px 5px 0 -3px #efe9d2;
 }
 
 .cb-board-inner {
@@ -1373,9 +1617,11 @@ body {
 }
 
 .teacher-desk-top {
-  width: 100px;
-  height: 14px;
-  background: linear-gradient(180deg, #c8a96e, #8B5E3C);
+  width: 126px;
+  height: 18px;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.14), transparent 28% 73%, rgba(0,0,0,0.16)),
+    linear-gradient(180deg, #c8a96e, #8B5E3C);
   border-radius: 3px 3px 0 0;
   border: 2px solid #5c3d1e;
   box-shadow: 0 2px 0 #3b2510, 2px 4px 8px rgba(0,0,0,0.5);
@@ -1388,11 +1634,41 @@ body {
   bottom: -10px;
   left: -2px;
   right: -2px;
-  height: 10px;
-  background: #6b4820;
+  height: 18px;
+  background:
+    linear-gradient(90deg, transparent 47%, rgba(0,0,0,0.25) 48% 52%, transparent 53%),
+    linear-gradient(180deg, #795127, #5b3718);
   border-radius: 0 0 3px 3px;
   border: 2px solid #3b2510;
   border-top: none;
+}
+
+.teacher-desk-top::before,
+.teacher-desk-top::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  border-radius: 2px;
+  z-index: 3;
+}
+
+.teacher-desk-top::before {
+  left: 14px;
+  width: 24px;
+  height: 10px;
+  background: linear-gradient(180deg, #f4e6c0, #d8b86d);
+  transform: rotate(-5deg);
+  box-shadow: 34px 1px 0 -2px #ede6d4;
+}
+
+.teacher-desk-top::after {
+  right: 18px;
+  width: 14px;
+  height: 18px;
+  background:
+    radial-gradient(circle at 50% 4px, #26323a 0 3px, transparent 4px),
+    linear-gradient(90deg, #b54336 0 28%, #2c77a0 28% 57%, #e0b83e 57% 100%);
+  border: 2px solid #3b2510;
 }
 
 .teacher-crewmate-wrap {
@@ -1420,24 +1696,56 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 8px 220px;
+  gap: 2px;
+  padding: 18px 8px 220px;
   align-items: center;
+  position: relative;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px) center / 58px 100%,
+    repeating-linear-gradient(180deg, rgba(255,255,255,0.035) 0 2px, transparent 2px 24px),
+    linear-gradient(180deg, #2b1f0d, #130d04 74%, #0d0900);
+}
+
+.classroom-floor::before,
+.classroom-floor::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  pointer-events: none;
+}
+
+.classroom-floor::before {
+  top: 0;
+  width: min(82vw, 620px);
+  height: 100%;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.14), transparent);
+}
+
+.classroom-floor::after {
+  bottom: 118px;
+  width: min(70vw, 520px);
+  height: 34px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.34), transparent 68%);
 }
 
 .classroom-row {
   display: flex;
-  gap: 16px;
+  gap: clamp(8px, 3vw, 18px);
   justify-content: center;
   transform: perspective(400px) rotateX(calc(var(--row, 0) * -3deg));
+  position: relative;
+  z-index: 2;
 }
 
 /* Butaca individual */
 .seat-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
+  position: relative;
+  width: 78px;
+  height: 104px;
+  display: block;
   cursor: default;
   animation: desk-fall 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   transition: transform 0.2s;
@@ -1456,15 +1764,37 @@ body {
 }
 
 .seat-crewmate {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  position: relative;
-  z-index: 2;
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  z-index: 4;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.seat-crewmate svg {
+  transform: translateY(0) scale(0.92);
+  transform-origin: center bottom;
+}
+
+.seat-crewmate::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 18px;
+  border-radius: 50% 50% 42% 42%;
+  background: rgba(28,18,7,0.38);
+  z-index: -1;
 }
 
 .seat-name {
+  position: absolute;
+  left: 50%;
+  top: 80px;
+  transform: translateX(-50%);
+  z-index: 7;
   font-family: 'Caveat', cursive;
   font-size: 0.78rem;
   color: #e8e8f0;
@@ -1488,60 +1818,142 @@ body {
   text-shadow: 0 0 8px rgba(231,76,60,0.8) !important;
 }
 
-/* Butaca 3D */
-.seat-chair {
-  position: relative;
-  width: 40px;
-  height: 32px;
-  margin-top: -2px;
+.seat-desk {
+  position: absolute;
+  left: 50%;
+  top: 42px;
+  width: 62px;
+  height: 46px;
+  transform: translateX(-50%) perspective(140px) rotateX(4deg);
+  z-index: 5;
 }
 
-.seat-back {
+.seat-desk-top {
   position: absolute;
   top: 0;
   left: 4px;
   right: 4px;
-  height: 20px;
-  background: linear-gradient(180deg, #8B5E3C, #6b4820);
-  border-radius: 3px 3px 0 0;
-  border: 1.5px solid #3b2510;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.1), 1px 2px 4px rgba(0,0,0,0.4);
+  height: 18px;
+  border: 2px solid #3b2510;
+  border-radius: 4px 4px 2px 2px;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.18), transparent 32% 78%, rgba(0,0,0,0.16)),
+    linear-gradient(180deg, #c59655, #7a4d23);
+  box-shadow: inset 0 2px 3px rgba(255,255,255,0.13), 0 3px 7px rgba(0,0,0,0.42);
+  z-index: 6;
 }
 
-.seat-back::after {
-  content: '';
+.seat-desk-front {
   position: absolute;
-  top: 3px;
-  left: 4px;
-  right: 4px;
-  height: 3px;
-  background: rgba(255,255,255,0.12);
-  border-radius: 2px;
+  top: 17px;
+  left: 8px;
+  right: 8px;
+  height: 13px;
+  border: 2px solid #3b2510;
+  border-top: 0;
+  border-radius: 0 0 5px 5px;
+  background: linear-gradient(180deg, #8b5e32, #5c3518);
+  z-index: 6;
 }
 
-.seat-cushion {
+.seat-notebook,
+.seat-pencil {
   position: absolute;
-  bottom: 8px;
-  left: 2px;
-  right: 2px;
+  display: block;
+}
+
+.seat-notebook {
+  width: 16px;
   height: 10px;
-  background: linear-gradient(180deg, #a07040, #7a5230);
+  left: 10px;
+  top: 3px;
   border-radius: 2px;
-  border: 1.5px solid #3b2510;
-  box-shadow: inset 0 1px 3px rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.4);
+  background:
+    linear-gradient(90deg, #77a6d6 0 4px, transparent 4px),
+    repeating-linear-gradient(180deg, transparent 0 3px, rgba(60,80,120,0.25) 3px 4px),
+    #f3ead2;
+  transform: rotate(-8deg);
 }
 
-.seat-leg {
+.seat-pencil {
+  width: 20px;
+  height: 3px;
+  right: 10px;
+  top: 8px;
+  background: linear-gradient(90deg, #f1c84b 0 72%, #e9dcc5 72% 86%, #423121 86%);
+  border-radius: 99px;
+  transform: rotate(13deg);
+}
+
+.seat-metal {
   position: absolute;
-  bottom: 0;
+  top: 28px;
   width: 4px;
-  height: 8px;
-  background: #5c3d1e;
-  border-radius: 0 0 2px 2px;
+  height: 18px;
+  background: linear-gradient(180deg, #b5c1c6, #5b6a70);
+  border-radius: 99px;
+  z-index: 3;
 }
 
-.seat-leg-l { left: 6px; }
-.seat-leg-r { right: 6px; }
+.seat-metal-l {
+  left: 14px;
+  transform: rotate(9deg);
+}
+
+.seat-metal-r {
+  right: 14px;
+  transform: rotate(-9deg);
+}
+
+@media (max-width: 760px) {
+  .classroom-window,
+  .poster-rules,
+  .poster-moon {
+    opacity: 0.38;
+    transform: scale(0.82);
+  }
+
+  .classroom-bookshelf,
+  .classroom-lockers {
+    opacity: 0.7;
+  }
+
+  .classroom-clock {
+    transform: scale(0.82);
+  }
+}
+
+@media (max-width: 520px) {
+  .classroom-wall {
+    min-height: 136px;
+  }
+
+  .classroom-blackboard {
+    max-width: 92vw;
+  }
+
+  .classroom-bookshelf,
+  .classroom-lockers,
+  .classroom-trash {
+    display: none;
+  }
+
+  .classroom-row {
+    gap: 4px;
+  }
+
+  .seat-desk {
+    width: 52px;
+  }
+
+  .seat-wrapper {
+    width: 62px;
+  }
+
+  .seat-name {
+    max-width: 58px;
+  }
+}
 
 @keyframes desk-fall {
   from { transform: translateY(-80px) rotate(-10deg); opacity: 0; }

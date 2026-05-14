@@ -17,7 +17,7 @@ import './App.css';
 
 export default function App() {
   const { emit, on, socketId } = useSocket();
-  const { playHalloween, stopHalloween, playBeep } = useSound();
+  const { playBeep, playStartTransition, playGameMusic, playVoteMusic, stopAllMusic } = useSound();
 
   const [screen, setScreen] = useState('home');
   const [showMoon, setShowMoon] = useState(false);
@@ -32,6 +32,8 @@ export default function App() {
   const [phase, setPhase] = useState('night');
   const [turn, setTurn] = useState(1);
   const [eliminated, setEliminated] = useState(null);
+  const [nightEliminated, setNightEliminated] = useState(null);
+  const [voteResult, setVoteResult] = useState(null);
   const [alivePlayers, setAlivePlayers] = useState([]);
   const [canVote, setCanVote] = useState(true);
   const [gameOverData, setGameOverData] = useState(null);
@@ -43,6 +45,14 @@ export default function App() {
   const [lobbyHostName, setLobbyHostName] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [disconnectMsg, setDisconnectMsg] = useState('');
+
+  useEffect(() => {
+    const gameScreens = ['night', 'day', 'nightResult', 'voteResult', 'question'];
+    if (fading || screen === 'escritorio' || screen === 'roleCard' || screen === 'transformedCard') return;
+    if (screen === 'vote') playVoteMusic();
+    if (gameScreens.includes(screen)) playGameMusic();
+    if (screen === 'gameOver') stopAllMusic();
+  }, [screen]);
 
   useEffect(() => {
     if (fading) {
@@ -65,6 +75,7 @@ export default function App() {
       }),
       on('lobby_update', ({ players, hostName }) => { setPlayers(players); if (hostName) setLobbyHostName(hostName); }),
       on('role_assigned', ({ role, bonusCard }) => {
+        playStartTransition();
         setMyRole(role);
         setMyBonus(bonusCard);
         setBonusUsed(false);
@@ -149,6 +160,7 @@ export default function App() {
 
   const handleStart = () => {
     setFading(true);
+    playStartTransition();
     setTimeout(() => emit('start_game', { code: roomCode }), 2500);
   };
   const handleAdvancePhase = () => emit('advance_phase', { code: roomCode });
@@ -158,7 +170,7 @@ export default function App() {
   return (
     <div className="app">
       {showMoon && (
-        <MoonLoading onDone={() => { setShowMoon(false); stopHalloween(); }} />
+        <MoonLoading onDone={() => setShowMoon(false)} />
       )}
       {fading && <div className="school-fade" />}
       {error && <div className="error-toast" onClick={() => setError('')}>⚠️ {error}</div>}
@@ -238,6 +250,7 @@ export default function App() {
           myName={myName}
           chatMessages={chatMessages}
           onSendChat={handleSendChat}
+          isHost={isHost}
         />
       )}
       {screen === 'gameOver' && gameOverData && (

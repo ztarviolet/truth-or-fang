@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Chalkboard from './Chalkboard';
+import { useSound } from '../hooks/useSound';
 
 const ROLE_INFO = {
   'Wolfman':           { emoji: '🐺',   color: '#f4a261', isMonster: true,  description: 'Vote to eliminate normies each night.',          instruction: 'During the day, say: "I am a student."' },
@@ -23,7 +24,14 @@ const BONUS_INFO = {
 
 export default function RoleTab({ role, bonusCard, monsterTeam }) {
   const [open, setOpen] = useState(false);
+  const { playCardMusic, stopCardMusic } = useSound();
   const info = ROLE_INFO[role] || ROLE_INFO['Normie'];
+
+  useEffect(() => {
+    if (!open) return;
+    playCardMusic();
+    return () => stopCardMusic();
+  }, [open]);
 
   return (
     <>

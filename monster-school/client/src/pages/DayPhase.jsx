@@ -47,6 +47,9 @@ export default function DayPhase({ eliminated, alivePlayers, isHost, onAdvance, 
       hostName={hostName}
       myId={myId}
       boardContent={<DayBoard eliminated={eliminated} isHost={isHost} role={role} />}
+      role={role}
+      monsterTeam={monsterTeam}
+      isHost={isHost}
     >
       {isHost && (
         <button className="btn btn-primary sticky-btn" onClick={onAdvance}>🗳️ Start Vote</button>

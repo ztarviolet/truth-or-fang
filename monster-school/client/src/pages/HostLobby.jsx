@@ -5,7 +5,7 @@ import { useSound } from '../hooks/useSound';
 const CLIENT_URL = window.location.origin;
 
 export default function HostLobby({ code, players, onStart, onBack }) {
-  const { playPop, playJoin, playDescanso, stopDescanso } = useSound();
+  const { playPop, playJoin, playLobbyMusic, stopDescanso } = useSound();
   const isFirst = useRef(true);
   const [networkIp, setNetworkIp] = useState(window.location.hostname);
 
@@ -19,7 +19,7 @@ export default function HostLobby({ code, players, onStart, onBack }) {
   const joinUrl = `http://${networkIp}:5173?join=${code}`;
 
   useEffect(() => {
-    playDescanso();
+    playLobbyMusic();
     return () => stopDescanso();
   }, []);
 

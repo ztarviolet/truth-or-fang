@@ -25,20 +25,67 @@ const io = new Server(server, { cors: { origin: allowedOrigin } });
 const rooms = {}; // roomCode -> room state
 
 function generateCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  let code;
+  do {
+    code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  } while (rooms[code]);
+  return code;
 }
 
-function getRoom(code) { return rooms[code]; }
+function normalizeCode(code) {
+  return String(code || '').trim().toUpperCase();
+}
+
+function getRoom(code) { return rooms[normalizeCode(code)]; }
+
+function getAlivePlayers(room) {
+  return Object.values(room.players).filter(p => p.isAlive);
+}
+
+function publicAlivePlayers(room) {
+  return getAlivePlayers(room).map(p => ({ id: p.id, name: p.name }));
+}
+
+function getMonsterList(room) {
+  return getAlivePlayers(room)
+    .filter(p => MONSTER_ROLES.includes(p.role))
+    .map(p => ({ id: p.id, name: p.name, role: p.role }));
+}
+
+function sendMonsterTeams(room) {
+  const monsterList = getMonsterList(room);
+  Object.values(room.players).forEach(p => {
+    if (p.isAlive && MONSTER_ROLES.includes(p.role)) {
+      io.to(p.id).emit('monster_team', { monsters: monsterList });
+    } else {
+      io.to(p.id).emit('monster_team', { monsters: [] });
+    }
+  });
+}
+
+function emitPhaseChange(code, room, data) {
+  io.to(code).emit('phase_change', {
+    turn: room.turn,
+    alivePlayers: publicAlivePlayers(room),
+    ...data,
+  });
+}
+
+function isAliveTarget(room, targetId) {
+  return Boolean(targetId && room.players[targetId] && room.players[targetId].isAlive);
+}
 
 io.on('connection', (socket) => {
 
   // HOST creates room
   socket.on('create_room', ({ hostName }) => {
+    const cleanHostName = String(hostName || '').trim().slice(0, 20);
+    if (!cleanHostName) return socket.emit('error', 'Host name is required');
     const code = generateCode();
     rooms[code] = {
       code,
       host: socket.id,
-      hostName,
+      hostName: cleanHostName,
       players: {},
       phase: 'lobby', // lobby | night | day | vote | ended
       turn: 0,
@@ -57,13 +104,19 @@ io.on('connection', (socket) => {
 
   // PLAYER joins room
   socket.on('join_room', ({ code, name }) => {
+    code = normalizeCode(code);
+    const cleanName = String(name || '').trim().slice(0, 20);
     const room = getRoom(code);
     if (!room) return socket.emit('error', 'Room not found');
     if (room.phase !== 'lobby') return socket.emit('error', 'Game already started');
+    if (!cleanName) return socket.emit('error', 'Name is required');
+    if (Object.values(room.players).some(p => p.name.toLowerCase() === cleanName.toLowerCase())) {
+      return socket.emit('error', 'Name already taken');
+    }
 
-    room.players[socket.id] = { id: socket.id, name, isAlive: true };
+    room.players[socket.id] = { id: socket.id, name: cleanName, isAlive: true };
     socket.join(code);
-    socket.emit('joined', { code, name });
+    socket.emit('joined', { code, name: cleanName });
     io.to(code).emit('lobby_update', {
       players: Object.values(room.players).map(p => ({ id: p.id, name: p.name })),
       hostName: room.hostName,
@@ -80,6 +133,7 @@ io.on('connection', (socket) => {
 
   // HOST starts game
   socket.on('start_game', ({ code }) => {
+    code = normalizeCode(code);
     const room = getRoom(code);
     if (!room || room.host !== socket.id) return;
     if (Object.keys(room.players).length < 6) return socket.emit('error', 'Need at least 6 players');
@@ -102,23 +156,19 @@ io.on('connection', (socket) => {
     });
 
     // Notify monsters of each other
-    const monsterList = Object.values(room.players)
-      .filter(p => MONSTER_ROLES.includes(p.role))
-      .map(p => ({ id: p.id, name: p.name, role: p.role }));
+    sendMonsterTeams(room);
 
-    monsterList.forEach(m => {
-      io.to(m.id).emit('monster_team', { monsters: monsterList });
-    });
-
-    io.to(code).emit('phase_change', { phase: 'night', turn: room.turn });
+    emitPhaseChange(code, room, { phase: 'night' });
   });
 
   // BONUS CARD
   socket.on('use_bonus_card', ({ code, targetId }) => {
+    code = normalizeCode(code);
     const room = getRoom(code);
     if (!room) return;
     const player = room.players[socket.id];
-    if (!player || !player.bonusCard || player.bonusUsed) return;
+    if (!player || !player.isAlive || !player.bonusCard || player.bonusUsed || room.phase !== 'night') return;
+    if (!isAliveTarget(room, targetId)) return;
 
     if (player.bonusCard === 'Silver Shield') {
       // Register vote but don't spend yet — resolved at night end
@@ -135,10 +185,26 @@ io.on('connection', (socket) => {
 
   // NIGHT ACTION: monster chooses victim
   socket.on('night_action', ({ code, targetId, action }) => {
+    code = normalizeCode(code);
     const room = getRoom(code);
     if (!room || room.phase !== 'night') return;
     const actor = room.players[socket.id];
     if (!actor || !actor.isAlive) return;
+    if (!isAliveTarget(room, targetId)) return;
+
+    const allowedActions = {
+      [ROLES.WOLFMAN]: 'monster_kill',
+      [ROLES.LORD_VAMPIRE]: 'vampire_transform',
+      [ROLES.MOMMY]: 'mommy_silence',
+      [ROLES.MONSTER_HUNTER]: 'hunter_kill',
+      [ROLES.PROTECTOR]: 'protect',
+      [ROLES.SHAMAN]: 'shaman_convert',
+    };
+    if (allowedActions[actor.role] !== action) return;
+    if (action !== 'protect' && targetId === socket.id) return;
+    if (action === 'vampire_transform' && room.turn % 2 !== 0) return;
+    if (action === 'hunter_kill' && actor.hunterLastUsedTurn && room.turn - actor.hunterLastUsedTurn < 2) return;
+    if (action === 'shaman_convert' && actor.shamanLastUsedTurn && room.turn - actor.shamanLastUsedTurn < 3) return;
 
     room.nightActions[action] = { actorId: socket.id, targetId };
 
@@ -148,10 +214,13 @@ io.on('connection', (socket) => {
 
   // INSPECTOR checks a player
   socket.on('inspector_check', ({ code, targetId }) => {
+    code = normalizeCode(code);
     const room = getRoom(code);
-    if (!room) return;
+    if (!room || room.phase !== 'night') return;
+    const actor = room.players[socket.id];
+    if (!actor || actor.role !== ROLES.INSPECTOR || !actor.isAlive) return;
     const target = room.players[targetId];
-    if (!target) return;
+    if (!target || !target.isAlive || targetId === socket.id) return;
     const result = target.isMonster ? 'a monster' : 'a student';
     socket.emit('inspector_result', {
       name: target.name,
@@ -162,10 +231,12 @@ io.on('connection', (socket) => {
 
   // DAY VOTE
   socket.on('cast_vote', ({ code, targetId }) => {
+    code = normalizeCode(code);
     const room = getRoom(code);
     if (!room || room.phase !== 'vote') return;
     const voter = room.players[socket.id];
     if (!voter || !voter.isAlive || !voter.canVote) return;
+    if (!isAliveTarget(room, targetId) || targetId === socket.id) return;
 
     if (!room.votes) room.votes = {};
     room.votes[socket.id] = targetId;
@@ -178,22 +249,27 @@ io.on('connection', (socket) => {
 
   // CHAT MESSAGE
   socket.on('chat_message', ({ code, message }) => {
+    code = normalizeCode(code);
     const room = getRoom(code);
     if (!room) return;
     const player = room.players[socket.id];
     if (!player || !player.isAlive) return;
-    io.to(code).emit('chat_message', { name: player.name, message, id: socket.id });
+    const cleanMessage = String(message || '').trim().slice(0, 240);
+    if (!cleanMessage) return;
+    io.to(code).emit('chat_message', { name: player.name, message: cleanMessage, id: socket.id });
   });
 
   // HOST advances phase
   socket.on('advance_phase', ({ code }) => {
+    code = normalizeCode(code);
     const room = getRoom(code);
     if (!room || room.host !== socket.id) return;
 
     if (room.phase === 'day') {
       room.phase = 'vote';
       room.votes = {};
-      io.to(code).emit('phase_change', { phase: 'vote', turn: room.turn });
+      emitPhaseChange(code, room, { phase: 'vote' });
+      resolveVoteIfNoVoters(room, code);
     } else if (room.phase === 'night') {
       resolveNight(room, code);
     }
@@ -202,6 +278,11 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     Object.keys(rooms).forEach(code => {
       const room = rooms[code];
+      if (room.host === socket.id) {
+        socket.to(code).emit('host_left');
+        delete rooms[code];
+        return;
+      }
       if (room.players[socket.id]) {
         if (room.phase === 'lobby') {
           delete room.players[socket.id];
@@ -212,6 +293,9 @@ io.on('connection', (socket) => {
         } else {
           room.players[socket.id].isAlive = false;
           io.to(code).emit('player_disconnected', { id: socket.id, name: room.players[socket.id].name });
+          sendMonsterTeams(room);
+          const victory = checkVictory(room.players);
+          if (victory) endGame(room, code, victory);
         }
       }
     });
@@ -219,9 +303,31 @@ io.on('connection', (socket) => {
 });
 
 function resolveNightIfReady(room, code) {
-  const monsters = Object.values(room.players).filter(p => p.isAlive && MONSTER_ROLES.includes(p.role));
-  if (room.nightActions['monster_kill']) {
+  if (areRequiredNightActionsReady(room)) {
     resolveNight(room, code);
+  }
+}
+
+function areRequiredNightActionsReady(room) {
+  const alive = getAlivePlayers(room);
+  const required = [];
+  const hasAliveVampireTarget = alive.some(p => p.role === ROLES.VAMPIRE);
+
+  if (alive.some(p => p.role === ROLES.WOLFMAN)) required.push('monster_kill');
+  if (alive.some(p => p.role === ROLES.LORD_VAMPIRE) && room.turn % 2 === 0) required.push('vampire_transform');
+  if (alive.some(p => p.role === ROLES.MOMMY)) required.push('mommy_silence');
+  if (alive.some(p => p.role === ROLES.PROTECTOR) && room.protectorSaves > 0) required.push('protect');
+  if (alive.some(p => p.role === ROLES.MONSTER_HUNTER && (!p.hunterLastUsedTurn || room.turn - p.hunterLastUsedTurn >= 2))) required.push('hunter_kill');
+  if (hasAliveVampireTarget && alive.some(p => p.role === ROLES.SHAMAN && (!p.shamanLastUsedTurn || room.turn - p.shamanLastUsedTurn >= 3))) required.push('shaman_convert');
+
+  if (required.length === 0) return true;
+  return required.every(action => Boolean(room.nightActions[action]));
+}
+
+function resolveVoteIfNoVoters(room, code) {
+  const aliveVoters = getAlivePlayers(room).filter(p => p.canVote).length;
+  if (aliveVoters === 0) {
+    resolveVote(room, code);
   }
 }
 
@@ -267,7 +373,9 @@ function resolveNight(room, code) {
     const isShieldProtected = shieldProtectedId === killAction.targetId;
     const isProtectorSaved = protectAction && protectAction.targetId === killAction.targetId && room.protectorSaves > 0;
 
-    if (isProtectorSaved) {
+    if (!target) {
+      // Target disconnected before resolution.
+    } else if (isProtectorSaved) {
       room.protectorSaves--;
       room.log.push(`${target.name} was saved by The Protector!`);
     } else if (isShieldProtected) {
@@ -291,6 +399,19 @@ function resolveNight(room, code) {
     }
   }
 
+  // --- Monster Hunter kill ---
+  const hunterAction = room.nightActions['hunter_kill'];
+  if (hunterAction) {
+    const actor = room.players[hunterAction.actorId];
+    const target = room.players[hunterAction.targetId];
+    if (actor?.isAlive && actor.role === ROLES.MONSTER_HUNTER && target?.isAlive) {
+      target.isAlive = false;
+      actor.hunterLastUsedTurn = room.turn;
+      if (!eliminated) eliminated = { id: target.id, name: target.name, role: target.role };
+      room.log.push(`${target.name} was eliminated by Monster Hunter!`);
+    }
+  }
+
   // --- Mommy silence ---
   const mommyAction = room.nightActions['mommy_silence'];
   if (mommyAction) {
@@ -311,11 +432,23 @@ function resolveNight(room, code) {
       target.role = ROLES.VAMPIRE;
       target.isMonster = true;
       io.to(target.id).emit('transformed', { newRole: ROLES.VAMPIRE });
-      const monsterList = Object.values(room.players)
-        .filter(p => MONSTER_ROLES.includes(p.role) && p.isAlive)
-        .map(p => ({ id: p.id, name: p.name, role: p.role }));
-      monsterList.forEach(m => io.to(m.id).emit('monster_team', { monsters: monsterList }));
+      sendMonsterTeams(room);
       room.log.push(`${target.name} was transformed into a Vampire!`);
+    }
+  }
+
+  // --- The Shaman converts a Vampire back into a Normie ---
+  const shamanAction = room.nightActions['shaman_convert'];
+  if (shamanAction) {
+    const actor = room.players[shamanAction.actorId];
+    const target = room.players[shamanAction.targetId];
+    if (actor?.isAlive && actor.role === ROLES.SHAMAN && target?.isAlive && target.role === ROLES.VAMPIRE) {
+      target.role = ROLES.NORMIE;
+      target.isMonster = false;
+      actor.shamanLastUsedTurn = room.turn;
+      io.to(target.id).emit('transformed', { newRole: ROLES.NORMIE });
+      sendMonsterTeams(room);
+      room.log.push(`${target.name} was restored by The Shaman!`);
     }
   }
 
@@ -333,21 +466,37 @@ function resolveNight(room, code) {
 
   const victory = checkVictory(room.players);
   if (victory) return endGame(room, code, victory);
+  sendMonsterTeams(room);
 
-  io.to(code).emit('phase_change', {
+  emitPhaseChange(code, room, {
     phase: 'day',
-    turn: room.turn,
     eliminated,
     log: room.log.slice(-5),
-    alivePlayers: Object.values(room.players).filter(p => p.isAlive).map(p => ({ id: p.id, name: p.name })),
   });
 }
 
 function resolveVote(room, code) {
+  if (!room.votes) room.votes = {};
   const tally = {};
   Object.values(room.votes).forEach(targetId => {
-    tally[targetId] = (tally[targetId] || 0) + 1;
+    if (isAliveTarget(room, targetId)) {
+      tally[targetId] = (tally[targetId] || 0) + 1;
+    }
   });
+
+  if (Object.keys(tally).length === 0) {
+    room.votes = {};
+    const victory = checkVictory(room.players);
+    if (victory) return endGame(room, code, victory);
+    room.phase = 'night';
+    io.to(code).emit('vote_result', {
+      eliminated: null,
+      tie: true,
+      alivePlayers: publicAlivePlayers(room),
+    });
+    setTimeout(() => emitPhaseChange(code, room, { phase: 'night' }), 6000);
+    return;
+  }
 
   const maxVotes = Math.max(...Object.values(tally));
   const candidates = Object.keys(tally).filter(id => tally[id] === maxVotes);
@@ -360,9 +509,9 @@ function resolveVote(room, code) {
     io.to(code).emit('vote_result', {
       eliminated: null,
       tie: true,
-      alivePlayers: Object.values(room.players).filter(p => p.isAlive).map(p => ({ id: p.id, name: p.name })),
+      alivePlayers: publicAlivePlayers(room),
     });
-    setTimeout(() => io.to(code).emit('phase_change', { phase: 'night', turn: room.turn }), 6000);
+    setTimeout(() => emitPhaseChange(code, room, { phase: 'night' }), 6000);
     return;
   }
 
@@ -397,15 +546,16 @@ function resolveVote(room, code) {
   room.votes = {};
   const victory = checkVictory(room.players);
   if (victory) return endGame(room, code, victory);
+  sendMonsterTeams(room);
 
   room.phase = 'night';
   io.to(code).emit('vote_result', {
     eliminated: eliminated ? { id: eliminated.id, name: eliminated.name, role: eliminated.role, isMonster: eliminated.isMonster } : null,
-    alivePlayers: Object.values(room.players).filter(p => p.isAlive).map(p => ({ id: p.id, name: p.name })),
+    alivePlayers: publicAlivePlayers(room),
   });
 
   setTimeout(() => {
-    io.to(code).emit('phase_change', { phase: 'night', turn: room.turn });
+    emitPhaseChange(code, room, { phase: 'night' });
   }, 6000);
 }
 

@@ -155,6 +155,9 @@ export default function NightPhase({ role, alivePlayers, myId, monsterTeam, turn
       selectedId={selected}
       isVoting={false}
       boardContent={boardContent}
+      role={role}
+      monsterTeam={monsterTeam}
+      isHost={isHost}
     >
       {canAct && !actionDone && selected && !isHost && !bonusMode && (
         <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={handleConfirm}>

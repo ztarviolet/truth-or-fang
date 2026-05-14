@@ -24,13 +24,22 @@ const BONUS_INFO = {
 
 export default function RoleCard({ role, bonusCard, onConfirm }) {
   const info = ROLE_INFO[role] || ROLE_INFO['Normie'];
-  const { playSwoosh } = useSound();
+  const { playSwoosh, playCardMusic, stopCardMusic } = useSound();
 
   useEffect(() => {
+    playCardMusic();
     const delays = [100, 300, 500, 700, 900, 1100, 1300];
     const timers = delays.map(d => setTimeout(playSwoosh, d));
-    return () => timers.forEach(clearTimeout);
+    return () => {
+      timers.forEach(clearTimeout);
+      stopCardMusic();
+    };
   }, []);
+
+  const handleConfirm = () => {
+    stopCardMusic();
+    onConfirm();
+  };
 
   return (
     <div className="screen center" style={{ background: '#1a1a1a' }}>
@@ -49,7 +58,7 @@ export default function RoleCard({ role, bonusCard, onConfirm }) {
           </div>
         )}
       </Chalkboard>
-      <button className="btn chalk-btn" style={{ marginTop: 16 }} onClick={onConfirm}>
+      <button className="btn chalk-btn" style={{ marginTop: 16 }} onClick={handleConfirm}>
         👁️ I've seen my role
       </button>
     </div>
